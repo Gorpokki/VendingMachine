@@ -8,6 +8,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -145,7 +147,13 @@ public class VendingMachineGameTests {
         VendingMachineMenu menu = openMenu(player, machine, BREAD);
         insert(menu, new ItemStack(coin("spur"), 3));
         h.destroyBlock(MACHINE);
-        h.assertItemEntityPresent(coin("spur"), MACHINE, 2.0);
+        int dropped = h.getEntities(EntityType.ITEM, MACHINE, 2.0)
+            .stream()
+            .map(ItemEntity::getItem)
+            .filter(stack -> stack.is(coin("spur")))
+            .mapToInt(ItemStack::getCount)
+            .sum();
+        h.assertTrue(dropped == 3, "breaking should drop all 3 spurs of credit, dropped " + dropped);
         h.succeed();
     }
 
