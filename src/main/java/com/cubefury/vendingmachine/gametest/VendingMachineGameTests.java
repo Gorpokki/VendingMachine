@@ -87,7 +87,8 @@ public class VendingMachineGameTests {
         VendingMachineBlockEntity machine = placeMachine(h);
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
         VendingMachineMenu menu = openMenu(player, machine, BREAD);
-        insert(menu, new ItemStack(coin("spur"), 70));
+        insert(menu, new ItemStack(coin("spur"), 64));
+        insert(menu, new ItemStack(coin("spur"), 6));
         h.assertTrue(menu.clickMenuButton(player, VendingMachineMenu.BUTTON_FIRST_TRADE), "buy should succeed");
         h.assertTrue(machine.credit(player.getUUID()) == 6, "credit should drop by the price");
         h.assertTrue(
