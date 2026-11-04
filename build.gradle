@@ -74,6 +74,10 @@ neoForge {
 
 tasks.matching { it.name.startsWith('run') }.configureEach { dependsOn copyRunMods }
 
+jar {
+    from('LICENSE')
+}
+
 var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
     var replaceProperties = [
             minecraft_version_range: minecraft_version_range,
