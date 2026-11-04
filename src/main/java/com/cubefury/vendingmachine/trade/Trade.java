@@ -14,12 +14,10 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 /**
  * One catalogue entry: pay {@code price} in currency units, receive every stack in {@code results}.
  */
-public record Trade(String category, int price, List<ItemStack> results) {
+public record Trade(int price, List<ItemStack> results) {
 
     public static final Codec<Trade> CODEC = RecordCodecBuilder.create(
         i -> i.group(
-            Codec.STRING.optionalFieldOf("category", "misc")
-                .forGetter(Trade::category),
             ExtraCodecs.POSITIVE_INT.fieldOf("price")
                 .forGetter(Trade::price),
             ExtraCodecs.nonEmptyList(ItemStack.CODEC.listOf())
@@ -28,8 +26,6 @@ public record Trade(String category, int price, List<ItemStack> results) {
             .apply(i, Trade::new));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, Trade> STREAM_CODEC = StreamCodec.composite(
-        ByteBufCodecs.STRING_UTF8,
-        Trade::category,
         ByteBufCodecs.VAR_INT,
         Trade::price,
         ItemStack.LIST_STREAM_CODEC,

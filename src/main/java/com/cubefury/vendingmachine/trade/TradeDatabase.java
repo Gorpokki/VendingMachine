@@ -12,6 +12,7 @@ import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
 
 import com.cubefury.vendingmachine.VendingMachine;
+import com.cubefury.vendingmachine.util.Currency;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.DynamicOps;
@@ -44,13 +45,22 @@ public class TradeDatabase extends SimpleJsonResourceReloadListener {
         VendingMachine.LOG.info("Loaded {} vending machine trades", trades.size());
     }
 
-    /** Parses trade files in id order; a broken file is logged and skipped. */
+    /** Parses trade files in id order; a broken file, or a price no coin combination pays, is logged and skipped. */
     public static List<Trade> parse(Map<ResourceLocation, JsonElement> files, DynamicOps<JsonElement> ops) {
         List<Trade> parsed = new ArrayList<>();
         new TreeMap<>(files).forEach(
             (id, json) -> Trade.CODEC.parse(ops, json)
                 .resultOrPartial(err -> VendingMachine.LOG.error("Skipping trade {}: {}", id, err))
-                .ifPresent(parsed::add));
+                .ifPresent(trade -> {
+                    if (Currency.payable(trade.price())) {
+                        parsed.add(trade);
+                    } else {
+                        VendingMachine.LOG.error(
+                            "Skipping trade {}: price {} is not a multiple of the smallest coin",
+                            id,
+                            trade.price());
+                    }
+                }));
         return List.copyOf(parsed);
     }
 }

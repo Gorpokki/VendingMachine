@@ -53,6 +53,32 @@ public final class Currency {
         return (long) unitValue(stack) * stack.getCount();
     }
 
+    /** Whether {@code amount} is a whole number of the smallest coin. Always true when no coins are accepted. */
+    public static boolean payable(long amount) {
+        List<Denomination> d = denominations();
+        return d.isEmpty() || amount % d.get(d.size() - 1)
+            .value() == 0;
+    }
+
+    /** The denominations unchanged if the smallest coin divides every other one, otherwise none. */
+    public static List<Denomination> usable(List<Denomination> denominations) {
+        if (denominations.isEmpty()) return denominations;
+        int unit = denominations.stream()
+            .mapToInt(Denomination::value)
+            .min()
+            .getAsInt();
+        for (Denomination d : denominations) {
+            if (d.value() % unit != 0) {
+                VendingMachine.LOG.error(
+                    "Coin worth {} is not a multiple of the smallest coin ({}); accepting no currency",
+                    d.value(),
+                    unit);
+                return List.of();
+            }
+        }
+        return denominations;
+    }
+
     /**
      * Coin stacks worth as much of {@code amount} as the denominations can express, largest first. The caller keeps
      * whatever is left over.
@@ -98,6 +124,6 @@ public final class Currency {
             }
         list.sort(Comparator.comparingInt(Denomination::value)
             .reversed());
-        return List.copyOf(list);
+        return usable(List.copyOf(list));
     }
 }

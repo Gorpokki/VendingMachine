@@ -10,7 +10,6 @@ Each JSON file in `data/<namespace>/vendingmachine/trades/` is one trade. A data
 
 ```json
 {
-  "category": "food",
   "price": 64,
   "results": [{ "id": "minecraft:bread", "count": 3 }]
 }
@@ -18,9 +17,10 @@ Each JSON file in `data/<namespace>/vendingmachine/trades/` is one trade. A data
 
 - `price`: cost in currency units (required, more than 0).
 - `results`: the item stacks the buyer gets (required, at least one).
-- `category`: a free label (optional, default `misc`).
 
 A purchase is all or nothing. With too little credit, or no room for every result in the machine's output slots, nothing is taken.
+
+Every price must be a multiple of the smallest coin's value. A trade whose price is not is logged and skipped.
 
 ## Currency
 

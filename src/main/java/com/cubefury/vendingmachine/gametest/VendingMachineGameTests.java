@@ -34,7 +34,7 @@ import com.mojang.serialization.JsonOps;
 public class VendingMachineGameTests {
 
     private static final BlockPos MACHINE = new BlockPos(1, 1, 1);
-    private static final Trade BREAD = new Trade("food", 64, List.of(new ItemStack(Items.BREAD, 3)));
+    private static final Trade BREAD = new Trade(64, List.of(new ItemStack(Items.BREAD, 3)));
 
     private static Item coin(String name) {
         return BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("numismatics", name));
@@ -160,7 +160,7 @@ public class VendingMachineGameTests {
     @GameTest(template = "vendingmachine:empty")
     public static void catalogueFileParses(GameTestHelper h) {
         var json = JsonParser.parseString(
-            "{\"category\":\"food\",\"price\":64,\"results\":[{\"id\":\"minecraft:bread\",\"count\":3}]}");
+            "{\"price\":64,\"results\":[{\"id\":\"minecraft:bread\",\"count\":3}]}");
         var ops = h.getLevel()
             .registryAccess()
             .createSerializationContext(JsonOps.INSTANCE);
@@ -168,12 +168,24 @@ public class VendingMachineGameTests {
             .parse(Map.of(ResourceLocation.fromNamespaceAndPath("test", "bread"), json), ops);
         h.assertTrue(trades.size() == 1, "one trade should load");
         Trade t = trades.get(0);
-        h.assertTrue(t.price() == 64 && t.category()
-            .equals("food") && t.displayItem()
-                .is(Items.BREAD)
+        h.assertTrue(t.price() == 64 && t.displayItem()
+            .is(Items.BREAD)
             && t.displayItem()
                 .getCount() == 3,
             "trade fields should match the file");
+        h.succeed();
+    }
+
+    @GameTest(template = "vendingmachine:empty")
+    public static void currencyWithUndividedCoinIsRefused(GameTestHelper h) {
+        List<Currency.Denomination> even = List.of(
+            new Currency.Denomination(coin("spur"), 1),
+            new Currency.Denomination(coin("cog"), 64));
+        h.assertTrue(Currency.usable(even).size() == 2, "spur 1 and cog 64 are both accepted");
+        List<Currency.Denomination> uneven = List.of(
+            new Currency.Denomination(coin("spur"), 4),
+            new Currency.Denomination(coin("bevel"), 3));
+        h.assertTrue(Currency.usable(uneven).isEmpty(), "a coin of 4 is refused when the smallest coin is 3");
         h.succeed();
     }
 }
