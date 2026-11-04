@@ -36,7 +36,7 @@ With an empty list (the default) and Create: Numismatics installed, the machine 
 
 Every coin's value must be a multiple of the smallest coin's value, or the machine accepts no currency and logs an error.
 
-The currency is read at server start. Changing `currency` on a world that already holds stored credit can strand remainders the new coins cannot pay out; each one is logged when the machine pays out or breaks.
+The currency is read once when the game or dedicated server launches; restart it after changing `currency`. Changing `currency` on a world that already holds stored credit can strand remainders the new coins cannot pay out; each one is logged when the machine pays out or breaks.
 
 ## Building
 
