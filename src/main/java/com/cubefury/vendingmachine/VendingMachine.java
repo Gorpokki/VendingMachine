@@ -1,132 +1,31 @@
 package com.cubefury.vendingmachine;
 
-import net.minecraft.util.EnumChatFormatting;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.AddReloadListenerEvent;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.cubefury.vendingmachine.blocks.VendingMachineBlocks;
-import com.cubefury.vendingmachine.gui.WidgetThemes;
-import com.cubefury.vendingmachine.items.VMItems;
-import com.cubefury.vendingmachine.network.PacketTypeRegistry;
-import com.cubefury.vendingmachine.network.SerializedPacket;
-import com.cubefury.vendingmachine.storage.VMTeamData;
-import com.cubefury.vendingmachine.util.ItemPlaceholder;
-import com.gtnewhorizon.gtnhlib.config.ConfigException;
-import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
-import com.gtnewhorizon.gtnhlib.teams.TeamDataRegistry;
+import com.cubefury.vendingmachine.trade.TradeDatabase;
+import com.cubefury.vendingmachine.util.Currency;
 
-import cpw.mods.fml.common.Loader;
-import cpw.mods.fml.common.Mod;
-import cpw.mods.fml.common.SidedProxy;
-import cpw.mods.fml.common.event.FMLInitializationEvent;
-import cpw.mods.fml.common.event.FMLPostInitializationEvent;
-import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.event.FMLServerStartingEvent;
-import cpw.mods.fml.common.event.FMLServerStoppedEvent;
-import cpw.mods.fml.common.network.NetworkRegistry;
-import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
-import cpw.mods.fml.common.registry.GameRegistry;
-import cpw.mods.fml.relauncher.Side;
-
-@Mod(
-    modid = VendingMachine.MODID,
-    version = Tags.VERSION,
-    name = VendingMachine.NAME,
-    guiFactory = "com.cubefury.vendingmachine.gui.client.VMGuiFactory",
-    acceptedMinecraftVersions = "[1.7.10]")
+@Mod(VendingMachine.MODID)
 public class VendingMachine {
 
-    static {
-        try {
-            ConfigurationManager.registerConfig(VMConfig.class);
-        } catch (ConfigException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public static final String MODID = "vendingmachine";
-    public static final Logger LOG = LogManager.getLogger(MODID);
-    public static final String CHANNEL = "VM_NET_CHAN";
-    public static final String NAME = "Vending Machine";
-    public static final String AUTHOR_CUBEFURY = "Author: " + EnumChatFormatting.AQUA
-        + EnumChatFormatting.BOLD
-        + "Cube"
-        + EnumChatFormatting.BLUE
-        + EnumChatFormatting.BOLD
-        + "Fury";
+    public static final Logger LOG = LoggerFactory.getLogger(MODID);
 
-    @Mod.Instance(MODID)
-    public static VendingMachine instance;
-
-    public static boolean isBqLoaded = false;
-    public static boolean isGt5uNhLoaded = false;
-    public static boolean isAeLoaded = false;
-
-    public static int CONTROLLER_MTE_ID = 2741;
-    public static int ME_UPLINK_MTE_ID = 2742;
-
-    @SidedProxy(
-        clientSide = "com.cubefury.vendingmachine.ClientProxy",
-        serverSide = "com.cubefury.vendingmachine.CommonProxy")
-    public static CommonProxy proxy;
-    public SimpleNetworkWrapper network;
-
-    @Mod.EventHandler
-    public void preInit(FMLPreInitializationEvent event) {
-        proxy.preInit(event);
-
-        network = NetworkRegistry.INSTANCE.newSimpleChannel(CHANNEL);
-
-        PacketTypeRegistry.INSTANCE.init();
-
-        // MUI2
-        WidgetThemes.init();
-
-        // Register network handlers
-        network.registerMessage(SerializedPacket.HandleClient.class, SerializedPacket.class, 0, Side.CLIENT);
-        network.registerMessage(SerializedPacket.HandleServer.class, SerializedPacket.class, 0, Side.SERVER);
-
-    }
-
-    @Mod.EventHandler
-    // load "Do your mod setup. Build whatever data structures you care about. Register recipes." (Remove if not needed)
-    public void init(FMLInitializationEvent event) {
-
-        isBqLoaded = Loader.isModLoaded("betterquesting");
-        isGt5uNhLoaded = Loader.isModLoaded("gregtech_nh");
-        isAeLoaded = Loader.isModLoaded("appliedenergistics2");
-
-        LOG.info("Better Questing Integration enabled: {}", isBqLoaded);
-        LOG.info("Gregtech Integration enabled: {}", isGt5uNhLoaded);
-        LOG.info("AE2 Integration enabled {}", isAeLoaded);
-
-        GameRegistry.registerItem(ItemPlaceholder.placeholder, "placeholder");
-
-        if (isGt5uNhLoaded) {
-            VendingMachineBlocks.registerBlocks();
-            VMItems.registerMultis();
-        }
-
-        TeamDataRegistry.register(VMTeamData.ID, VMTeamData::new);
-
-        proxy.init(event);
-    }
-
-    @Mod.EventHandler
-    // postInit "Handle interaction with other mods, complete your setup based on this." (Remove if not needed)
-    public void postInit(FMLPostInitializationEvent event) {
-        proxy.postInit(event);
-    }
-
-    @Mod.EventHandler
-    // register server commands in this event handler (Remove if not needed)
-    public void serverStarting(FMLServerStartingEvent event) {
-        proxy.serverStarting(event);
-    }
-
-    @Mod.EventHandler
-    public void serverStop(FMLServerStoppedEvent event) {
-        proxy.serverStopped(event);
+    public VendingMachine(IEventBus modBus, ModContainer container) {
+        Registration.register(modBus);
+        container.registerConfig(ModConfig.Type.COMMON, VMConfig.SPEC);
+        modBus.addListener(ModConfigEvent.Loading.class, e -> Currency.invalidate());
+        modBus.addListener(ModConfigEvent.Reloading.class, e -> Currency.invalidate());
+        NeoForge.EVENT_BUS.addListener(AddReloadListenerEvent.class,
+            e -> e.addListener(new TradeDatabase(e.getRegistryAccess())));
     }
 }

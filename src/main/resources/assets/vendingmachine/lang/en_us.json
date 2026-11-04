@@ -1,0 +1,5 @@
+{
+  "block.vendingmachine.vending_machine": "Vending Machine",
+  "vendingmachine.gui.coin_eject": "Return Coins",
+  "vendingmachine.gui.credit": "Credit: %s"
+}
