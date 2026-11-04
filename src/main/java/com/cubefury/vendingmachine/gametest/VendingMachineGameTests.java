@@ -59,7 +59,7 @@ public class VendingMachineGameTests {
             .countItem(item);
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void currencyUsesNumismaticsCoinValues(GameTestHelper h) {
         h.assertTrue(Currency.unitValue(new ItemStack(coin("spur"))) == 1, "spur should be worth 1");
         h.assertTrue(Currency.unitValue(new ItemStack(coin("cog"))) == 64, "cog should be worth 64 spurs");
@@ -67,7 +67,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void insertedCoinsBecomeCredit(GameTestHelper h) {
         VendingMachineBlockEntity machine = placeMachine(h);
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
@@ -82,7 +82,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void buyWithEnoughCredit(GameTestHelper h) {
         VendingMachineBlockEntity machine = placeMachine(h);
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
@@ -99,7 +99,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void refuseWithTooLittleCredit(GameTestHelper h) {
         VendingMachineBlockEntity machine = placeMachine(h);
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
@@ -114,7 +114,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void refuseWhenOutputIsFull(GameTestHelper h) {
         VendingMachineBlockEntity machine = placeMachine(h);
         for (int i = 0; i < VendingMachineBlockEntity.OUTPUT_SLOTS; i++) {
@@ -128,7 +128,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void refundReturnsCredit(GameTestHelper h) {
         VendingMachineBlockEntity machine = placeMachine(h);
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
@@ -140,7 +140,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void breakingDropsCredit(GameTestHelper h) {
         VendingMachineBlockEntity machine = placeMachine(h);
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
@@ -157,7 +157,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void catalogueFileParses(GameTestHelper h) {
         var json = JsonParser.parseString(
             "{\"price\":64,\"results\":[{\"id\":\"minecraft:bread\",\"count\":3}]}");
@@ -176,7 +176,7 @@ public class VendingMachineGameTests {
         h.succeed();
     }
 
-    @GameTest(template = "vendingmachine:empty")
+    @GameTest(template = "empty")
     public static void currencyWithUndividedCoinIsRefused(GameTestHelper h) {
         List<Currency.Denomination> even = List.of(
             new Currency.Denomination(coin("spur"), 1),
