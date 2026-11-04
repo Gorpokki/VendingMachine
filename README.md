@@ -34,7 +34,7 @@ currency = ["minecraft:emerald=1", "minecraft:emerald_block=9"]
 
 With an empty list (the default) and Create: Numismatics installed, the machine takes Numismatics coins at their Numismatics values, counted in spurs.
 
-Every coin's value must be a multiple of the smallest coin's value, or the machine accepts no currency and logs an error.
+Every coin's value must be a multiple of the smallest coin's value, and each item may appear only once. Otherwise the machine accepts no currency and logs an error.
 
 The currency is read once when the game or dedicated server launches; restart it after changing `currency`. Changing `currency` on a world that already holds stored credit can strand remainders the new coins cannot pay out; each one is logged when the machine pays out or breaks.
 
