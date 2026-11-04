@@ -14,9 +14,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NEOFORGE_VERSION: 21.1.257
-
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -64,6 +61,7 @@ jobs:
       - name: Install NeoForge server
         working-directory: server
         run: |
+          NEOFORGE_VERSION=$(sed -n 's/^neo_version=//p' ../gradle.properties)
           curl -fsSLo installer.jar "https://maven.neoforged.net/releases/net/neoforged/neoforge/${NEOFORGE_VERSION}/neoforge-${NEOFORGE_VERSION}-installer.jar"
           java -jar installer.jar --installServer
           echo 'eula=true' > eula.txt

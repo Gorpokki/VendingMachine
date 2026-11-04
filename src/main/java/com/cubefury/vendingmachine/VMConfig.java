@@ -2,6 +2,7 @@ package com.cubefury.vendingmachine;
 
 import java.util.List;
 
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 public final class VMConfig {
@@ -20,7 +21,7 @@ public final class VMConfig {
     private static boolean isCurrencyEntry(Object o) {
         if (!(o instanceof String s)) return false;
         String[] parts = s.split("=");
-        if (parts.length != 2) return false;
+        if (parts.length != 2 || ResourceLocation.tryParse(parts[0].trim()) == null) return false;
         try {
             return Integer.parseInt(parts[1].trim()) > 0;
         } catch (NumberFormatException e) {

@@ -60,9 +60,7 @@ public class VendingMachineGameTests {
     @GameTest(template = "vendingmachine:empty")
     public static void currencyUsesNumismaticsCoinValues(GameTestHelper h) {
         h.assertTrue(Currency.unitValue(new ItemStack(coin("spur"))) == 1, "spur should be worth 1");
-        h.assertTrue(
-            Currency.unitValue(new ItemStack(coin("cog"))) > Currency.unitValue(new ItemStack(coin("bevel"))),
-            "cog should be worth more than bevel");
+        h.assertTrue(Currency.unitValue(new ItemStack(coin("cog"))) == 64, "cog should be worth 64 spurs");
         h.assertTrue(Currency.unitValue(new ItemStack(Items.DIRT)) == 0, "dirt is not currency");
         h.succeed();
     }
@@ -72,9 +70,8 @@ public class VendingMachineGameTests {
         VendingMachineBlockEntity machine = placeMachine(h);
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
         VendingMachineMenu menu = openMenu(player, machine, BREAD);
-        int cog = Currency.unitValue(new ItemStack(coin("cog")));
         insert(menu, new ItemStack(coin("cog"), 2));
-        h.assertTrue(machine.credit(player.getUUID()) == 2L * cog, "credit should be the value of two cogs");
+        h.assertTrue(machine.credit(player.getUUID()) == 128, "credit should be the value of two cogs, 128 spurs");
         h.assertTrue(
             menu.getSlot(VendingMachineMenu.COIN_SLOT)
                 .getItem()
@@ -137,9 +134,7 @@ public class VendingMachineGameTests {
         insert(menu, new ItemStack(coin("spur"), 5));
         h.assertTrue(menu.clickMenuButton(player, VendingMachineMenu.BUTTON_REFUND), "refund should succeed");
         h.assertTrue(machine.credit(player.getUUID()) == 0, "credit should be zero after refund");
-        long returned = 0;
-        for (ItemStack stack : player.getInventory().items) returned += Currency.valueOf(stack);
-        h.assertTrue(returned == 5, "refund should return coins worth 5, got " + returned);
+        h.assertTrue(countInInventory(player, coin("spur")) == 5, "refund should return 5 spurs");
         h.succeed();
     }
 

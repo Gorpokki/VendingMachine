@@ -78,6 +78,11 @@ public class VendingMachineMenu extends AbstractContainerMenu {
                 public boolean mayPlace(ItemStack stack) {
                     return false;
                 }
+
+                @Override
+                public void setChanged() {
+                    if (machine != null) machine.setChanged();
+                }
             });
         }
         for (int row = 0; row < 3; row++) {
