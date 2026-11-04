@@ -189,4 +189,13 @@ public class VendingMachineGameTests {
         h.assertTrue(Currency.usable(uneven).isEmpty(), "a coin of 4 is refused when the smallest coin is 3");
         h.succeed();
     }
+
+    @GameTest(template = "empty")
+    public static void currencyListingOneItemTwiceIsRefused(GameTestHelper h) {
+        List<Currency.Denomination> twice = List.of(
+            new Currency.Denomination(coin("spur"), 9),
+            new Currency.Denomination(coin("spur"), 1));
+        h.assertTrue(Currency.usable(twice).isEmpty(), "one item listed at two values is refused");
+        h.succeed();
+    }
 }

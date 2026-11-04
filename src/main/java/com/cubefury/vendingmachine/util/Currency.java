@@ -2,7 +2,9 @@ package com.cubefury.vendingmachine.util;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -60,14 +62,24 @@ public final class Currency {
             .value() == 0;
     }
 
-    /** The denominations unchanged if the smallest coin divides every other one, otherwise none. */
+    /**
+     * The denominations unchanged if each item is listed once and the smallest coin divides every other one,
+     * otherwise none.
+     */
     public static List<Denomination> usable(List<Denomination> denominations) {
         if (denominations.isEmpty()) return denominations;
         int unit = denominations.stream()
             .mapToInt(Denomination::value)
             .min()
             .getAsInt();
+        Set<Item> items = new HashSet<>();
         for (Denomination d : denominations) {
+            if (!items.add(d.item())) {
+                VendingMachine.LOG.error(
+                    "Coin {} is listed more than once; accepting no currency",
+                    BuiltInRegistries.ITEM.getKey(d.item()));
+                return List.of();
+            }
             if (d.value() % unit != 0) {
                 VendingMachine.LOG.error(
                     "Coin worth {} is not a multiple of the smallest coin ({}); accepting no currency",
