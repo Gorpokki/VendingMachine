@@ -22,6 +22,7 @@ import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 import com.cubefury.vendingmachine.Registration;
+import com.cubefury.vendingmachine.VendingMachine;
 import com.cubefury.vendingmachine.blocks.gui.VendingMachineMenu;
 import com.cubefury.vendingmachine.trade.Trade;
 import com.cubefury.vendingmachine.util.Currency;
@@ -89,7 +90,7 @@ public class VendingMachineBlockEntity extends BlockEntity {
 
     /** Gives the player's credit back as coins. Credit the denominations cannot express stays. */
     public void refund(Player player) {
-        List<ItemStack> coins = Currency.makeChange(credit(player.getUUID()));
+        List<ItemStack> coins = change(player.getUUID(), credit(player.getUUID()));
         setCredit(player.getUUID(), credit(player.getUUID()) - Currency.total(coins));
         for (ItemStack coin : coins) {
             ItemHandlerHelper.giveItemToPlayer(player, coin);
@@ -97,16 +98,25 @@ public class VendingMachineBlockEntity extends BlockEntity {
     }
 
     public void dropContents(Level level, BlockPos pos) {
-        for (long amount : credit.values()) {
-            for (ItemStack coin : Currency.makeChange(amount)) {
+        credit.forEach((player, amount) -> {
+            for (ItemStack coin : change(player, amount)) {
                 Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), coin);
             }
-        }
+        });
         credit.clear();
         for (int i = 0; i < output.getSlots(); i++) {
             Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), output.getStackInSlot(i));
             output.setStackInSlot(i, ItemStack.EMPTY);
         }
+    }
+
+    private static List<ItemStack> change(UUID player, long amount) {
+        List<ItemStack> coins = Currency.makeChange(amount);
+        long unpaid = amount - Currency.total(coins);
+        if (unpaid > 0) {
+            VendingMachine.LOG.warn("Player {} has {} credit that the currency cannot pay out as coins", player, unpaid);
+        }
+        return coins;
     }
 
     private void setCredit(UUID player, long amount) {

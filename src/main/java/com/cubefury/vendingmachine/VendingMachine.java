@@ -24,7 +24,6 @@ public class VendingMachine {
         Registration.register(modBus);
         container.registerConfig(ModConfig.Type.COMMON, VMConfig.SPEC);
         modBus.addListener(ModConfigEvent.Loading.class, e -> Currency.invalidate());
-        modBus.addListener(ModConfigEvent.Reloading.class, e -> Currency.invalidate());
         NeoForge.EVENT_BUS.addListener(AddReloadListenerEvent.class,
             e -> e.addListener(new TradeDatabase(e.getRegistryAccess())));
     }

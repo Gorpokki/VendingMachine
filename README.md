@@ -34,6 +34,8 @@ currency = ["minecraft:emerald=1", "minecraft:emerald_block=9"]
 
 With an empty list (the default) and Create: Numismatics installed, the machine takes Numismatics coins at their Numismatics values, counted in spurs.
 
+The currency is read at server start. Changing `currency` on a world that already holds stored credit can strand remainders the new coins cannot pay out; each one is logged when the machine pays out or breaks.
+
 ## Building
 
 `./gradlew build` makes the jar. `./gradlew runGameTestServer` runs the GameTests with Create and Create: Numismatics loaded.
