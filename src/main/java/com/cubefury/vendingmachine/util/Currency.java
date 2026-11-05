@@ -128,13 +128,9 @@ public final class Currency {
         return t;
     }
 
-    private static List<? extends String> configured() {
-        return VMConfig.SPEC.isLoaded() ? VMConfig.CURRENCY.get() : List.of();
-    }
-
     private static Table load() {
         List<Denomination> list = new ArrayList<>();
-        List<? extends String> configured = configured();
+        List<? extends String> configured = VMConfig.SPEC.isLoaded() ? VMConfig.CURRENCY.get() : List.of();
         if (!configured.isEmpty()) {
             for (String entry : configured) {
                 String[] parts = entry.split("=");
