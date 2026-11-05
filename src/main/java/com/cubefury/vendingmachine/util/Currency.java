@@ -25,22 +25,19 @@ public final class Currency {
 
     public record Denomination(Item item, int value) {}
 
-    private static volatile List<Denomination> denominations;
+    private record Table(List<Denomination> denominations, boolean inSpurs) {}
+
+    private static volatile Table table;
 
     private Currency() {}
 
     public static void invalidate() {
-        denominations = null;
+        table = null;
     }
 
     /** Denominations, largest value first. */
     public static List<Denomination> denominations() {
-        List<Denomination> d = denominations;
-        if (d == null) {
-            d = load();
-            denominations = d;
-        }
-        return d;
+        return table().denominations();
     }
 
     /** Value of one item of this stack, or 0 if it is not currency. */
@@ -53,6 +50,11 @@ public final class Currency {
 
     public static long valueOf(ItemStack stack) {
         return (long) unitValue(stack) * stack.getCount();
+    }
+
+    /** Whether credit is counted in Numismatics spurs, so a Numismatics card can pay it. */
+    public static boolean countsInSpurs() {
+        return table().inSpurs();
     }
 
     /** Whether {@code amount} is a whole number of the smallest coin. Always true when no coins are accepted. */
@@ -117,7 +119,16 @@ public final class Currency {
             .sum();
     }
 
-    private static List<Denomination> load() {
+    private static Table table() {
+        Table t = table;
+        if (t == null) {
+            t = load();
+            table = t;
+        }
+        return t;
+    }
+
+    private static Table load() {
         List<Denomination> list = new ArrayList<>();
         List<? extends String> configured = VMConfig.SPEC.isLoaded() ? VMConfig.CURRENCY.get() : List.of();
         if (!configured.isEmpty()) {
@@ -136,6 +147,10 @@ public final class Currency {
             }
         list.sort(Comparator.comparingInt(Denomination::value)
             .reversed());
-        return usable(List.copyOf(list));
+        List<Denomination> usable = usable(List.copyOf(list));
+        boolean inSpurs = configured.isEmpty() && !usable.isEmpty()
+            && ModList.get()
+                .isLoaded("numismatics");
+        return new Table(usable, inSpurs);
     }
 }

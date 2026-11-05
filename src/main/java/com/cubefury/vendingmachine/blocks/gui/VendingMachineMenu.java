@@ -4,6 +4,9 @@ import java.util.List;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Inventory;
@@ -12,6 +15,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.DataSlot;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
@@ -31,6 +35,10 @@ public class VendingMachineMenu extends AbstractContainerMenu {
     public static final int BUTTON_REFUND = 0;
     public static final int BUTTON_FIRST_TRADE = 1;
     public static final int COIN_SLOT = 0;
+    public static final int CARD_SLOT = 1;
+    private static final TagKey<Item> CARDS = ItemTags.create(ResourceLocation.fromNamespaceAndPath("numismatics", "cards"));
+    private static final TagKey<Item> AUTHORIZED_CARDS = ItemTags
+        .create(ResourceLocation.fromNamespaceAndPath("numismatics", "authorized_cards"));
 
     private final Player player;
     private final VendingMachineBlockEntity machine; // null on the client
@@ -46,6 +54,8 @@ public class VendingMachineMenu extends AbstractContainerMenu {
             slotsChanged(this);
         }
     };
+    /** Held only while the menu is open; given back on close. */
+    private final Container cardInput = new SimpleContainer(1);
 
     public VendingMachineMenu(int id, Inventory inv, RegistryFriendlyByteBuf buf) {
         this(id, inv, null, buf.readBlockPos(), Trade.LIST_STREAM_CODEC.decode(buf));
@@ -68,6 +78,18 @@ public class VendingMachineMenu extends AbstractContainerMenu {
             @Override
             public boolean mayPlace(ItemStack stack) {
                 return Currency.unitValue(stack) > 0;
+            }
+        });
+        addSlot(new Slot(cardInput, 0, 80, 95) {
+
+            @Override
+            public boolean mayPlace(ItemStack stack) {
+                return isCard(stack);
+            }
+
+            @Override
+            public int getMaxStackSize() {
+                return 1;
             }
         });
         ItemStackHandler output = machine == null ? new ItemStackHandler(VendingMachineBlockEntity.OUTPUT_SLOTS)
@@ -129,7 +151,7 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         }
         int index = id - BUTTON_FIRST_TRADE;
         if (index < 0 || index >= trades.size()) return false;
-        return machine.buy(player.getUUID(), trades.get(index));
+        return machine.buy(player, trades.get(index), cardInput.getItem(0));
     }
 
     @Override
@@ -138,11 +160,13 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         if (!slot.hasItem()) return ItemStack.EMPTY;
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
-        int playerStart = 1 + VendingMachineBlockEntity.OUTPUT_SLOTS;
+        int playerStart = 2 + VendingMachineBlockEntity.OUTPUT_SLOTS;
         if (index < playerStart) {
             if (!moveItemStackTo(stack, playerStart, slots.size(), true)) return ItemStack.EMPTY;
         } else if (Currency.unitValue(stack) > 0) {
             if (!moveItemStackTo(stack, COIN_SLOT, COIN_SLOT + 1, false)) return ItemStack.EMPTY;
+        } else if (isCard(stack)) {
+            if (!moveItemStackTo(stack, CARD_SLOT, CARD_SLOT + 1, false)) return ItemStack.EMPTY;
         } else {
             return ItemStack.EMPTY;
         }
@@ -162,6 +186,11 @@ public class VendingMachineMenu extends AbstractContainerMenu {
     public void removed(Player player) {
         super.removed(player);
         clearContainer(player, coinInput);
+        clearContainer(player, cardInput);
+    }
+
+    private static boolean isCard(ItemStack stack) {
+        return stack.is(CARDS) || stack.is(AUTHORIZED_CARDS);
     }
 
     private class CreditSlot extends DataSlot {
