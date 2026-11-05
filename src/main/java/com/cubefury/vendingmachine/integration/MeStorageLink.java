@@ -107,7 +107,7 @@ public final class MeStorageLink implements IInWorldGridNodeHost {
     private boolean isOwner(Player player) {
         return player.getUUID()
             .equals(node.getNode()
-                .getOwningPlayerId());
+                .getOwningPlayerProfileId());
     }
 
     private static AEItemKey key(List<Denomination> coins, int i) {

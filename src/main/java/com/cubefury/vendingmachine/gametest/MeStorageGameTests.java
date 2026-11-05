@@ -8,6 +8,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -84,7 +85,7 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void paysFromMeStorage(GameTestHelper h) {
-        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        ServerPlayer player = h.makeMockServerPlayerInLevel();
         VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
@@ -105,7 +106,7 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void meStorageCoversCreditShortfall(GameTestHelper h) {
-        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        ServerPlayer player = h.makeMockServerPlayerInLevel();
         VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
@@ -122,7 +123,7 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void refuseWhenMeStorageLacksCoins(GameTestHelper h) {
-        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        ServerPlayer player = h.makeMockServerPlayerInLevel();
         VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
@@ -141,18 +142,25 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void refuseMeStorageForPlayerWhoDoesNotOwnNetwork(GameTestHelper h) {
-        Player owner = h.makeMockPlayer(GameType.SURVIVAL);
+        ServerPlayer owner = h.makeMockServerPlayerInLevel();
         VendingMachineBlockEntity machine = buildNetwork(h, owner);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
-            store(storage, coin("cog"), 1);
+            store(storage, coin("cog"), 2);
             Player stranger = h.makeMockPlayer(GameType.SURVIVAL);
-            VendingMachineMenu menu = new VendingMachineMenu(0, stranger.getInventory(), machine, List.of(BREAD));
+            VendingMachineMenu strangerMenu = new VendingMachineMenu(
+                0,
+                stranger.getInventory(),
+                machine,
+                List.of(BREAD));
             h.assertFalse(
-                buy(stranger, menu),
+                buy(stranger, strangerMenu),
                 "a player who does not own the network should not pay from its ME storage");
-            h.assertTrue(stored(storage, coin("cog")) == 1, "ME storage should be unchanged");
+            h.assertTrue(stored(storage, coin("cog")) == 2, "ME storage should be unchanged by the refused stranger");
             h.assertTrue(machine.credit(stranger.getUUID()) == 0, "stranger should get no credit");
+            VendingMachineMenu ownerMenu = new VendingMachineMenu(0, owner.getInventory(), machine, List.of(BREAD));
+            h.assertTrue(buy(owner, ownerMenu), "the network owner should pay from ME storage");
+            h.assertTrue(stored(storage, coin("cog")) == 1, "the owner's purchase should take one cog");
             h.succeed();
         });
     }

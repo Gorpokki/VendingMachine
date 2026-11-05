@@ -48,7 +48,7 @@ The card slot takes a Numismatics bank card or authorized card whatever the curr
 
 ## ME storage
 
-With Applied Energistics 2 installed, the machine joins an adjacent AE2 network like any network block. When there is no card, or the card cannot pay, and the player's credit is too low, the machine takes coin items worth the missing value from the network's ME storage. It checks with a simulated extract first and takes nothing unless the coins cover the whole shortfall. Coins are taken largest first; when they cannot match the shortfall exactly, one more coin covers it and the overpaid part stays as the player's credit. The network must be powered.
+With Applied Energistics 2 installed, the machine joins an adjacent AE2 network like any network block. When there is no card, or the card cannot pay, and the player's credit is too low, the machine takes coin items worth the missing value from the network's ME storage. It checks with a simulated extract first and takes nothing unless the coins cover the whole shortfall. Coins are taken largest first; when they cannot match the shortfall exactly, one more coin covers it and the overpaid part stays as the player's credit. The network must be powered. Only the player who placed the machine may pay from its ME storage; other players pay with coins or a card.
 
 ## Building
 
