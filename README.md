@@ -54,6 +54,15 @@ With Applied Energistics 2 installed, the machine joins an adjacent AE2 network 
 
 The shipping bin is a chest-sized block that buys items. Each item with a `sell_price` in the catalogue sells in whole lots of the entry's stack size, counted across every slot of the bin, and the bin pays in coin items placed in the bin, never into a bank account. A sale happens whenever the bin's contents change. Items with no sell price, leftovers smaller than one lot, and coins stay in the bin. When the coins do not fit, nothing sells and every item stays.
 
+## Crafting
+
+Both blocks craft early from vanilla items, so players can place them in their own bases.
+
+- Vending machine: 7 copper ingots, 1 glass pane and 1 chest (`CGC` / `CHC` / `CCC`).
+- Shipping bin: 2 wooden slabs, 5 planks and 1 chest (`S S` / `PHP` / `PPP`).
+
+A data pack can replace either recipe at `data/vendingmachine/recipe/vending_machine.json` or `shipping_bin.json`.
+
 ## Building
 
 `./gradlew build` makes the jar. `./gradlew runGameTestServer` runs the GameTests with Create, Create: Numismatics and Applied Energistics 2 loaded.

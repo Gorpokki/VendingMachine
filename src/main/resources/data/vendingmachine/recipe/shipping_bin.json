@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": ["S S", "PHP", "PPP"],
+  "key": {
+    "S": { "tag": "minecraft:wooden_slabs" },
+    "P": { "tag": "minecraft:planks" },
+    "H": { "item": "minecraft:chest" }
+  },
+  "result": { "id": "vendingmachine:shipping_bin", "count": 1 }
+}
