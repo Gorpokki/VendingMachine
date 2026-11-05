@@ -55,6 +55,13 @@ public final class Currency {
         return (long) unitValue(stack) * stack.getCount();
     }
 
+    /** Whether credit is counted in Numismatics spurs, so a Numismatics card can pay it. */
+    public static boolean countsInSpurs() {
+        return configured().isEmpty() && !denominations().isEmpty()
+            && ModList.get()
+                .isLoaded("numismatics");
+    }
+
     /** Whether {@code amount} is a whole number of the smallest coin. Always true when no coins are accepted. */
     public static boolean payable(long amount) {
         List<Denomination> d = denominations();
@@ -117,9 +124,13 @@ public final class Currency {
             .sum();
     }
 
+    private static List<? extends String> configured() {
+        return VMConfig.SPEC.isLoaded() ? VMConfig.CURRENCY.get() : List.of();
+    }
+
     private static List<Denomination> load() {
         List<Denomination> list = new ArrayList<>();
-        List<? extends String> configured = VMConfig.SPEC.isLoaded() ? VMConfig.CURRENCY.get() : List.of();
+        List<? extends String> configured = configured();
         if (!configured.isEmpty()) {
             for (String entry : configured) {
                 String[] parts = entry.split("=");

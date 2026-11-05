@@ -24,6 +24,7 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 import com.cubefury.vendingmachine.Registration;
 import com.cubefury.vendingmachine.VendingMachine;
 import com.cubefury.vendingmachine.blocks.gui.VendingMachineMenu;
+import com.cubefury.vendingmachine.integration.NumismaticsCards;
 import com.cubefury.vendingmachine.trade.Trade;
 import com.cubefury.vendingmachine.util.Currency;
 
@@ -75,16 +76,24 @@ public class VendingMachineBlockEntity extends BlockEntity {
     }
 
     /**
-     * Buys a trade with the player's credit. All or nothing: with too little credit, or no room in the output for
-     * the whole stack, nothing changes.
+     * Buys a trade. A Numismatics card pays first, as at a Numismatics Vendor; the player's credit pays when there is
+     * no card or the card cannot pay. All or nothing: with too little money, or no room in the output for the whole
+     * stack, nothing changes.
      */
-    public boolean buy(UUID player, Trade trade) {
-        long have = credit(player);
-        if (have < trade.price() || !fitsInOutput(trade.item())) return false;
+    public boolean buy(Player player, Trade trade, ItemStack card) {
+        if (!fitsInOutput(trade.item())) return false;
+        if (!payByCard(card, player, trade.price())) {
+            long have = credit(player.getUUID());
+            if (have < trade.price()) return false;
+            setCredit(player.getUUID(), have - trade.price());
+        }
         ItemHandlerHelper.insertItemStacked(output, trade.item()
             .copy(), false);
-        setCredit(player, have - trade.price());
         return true;
+    }
+
+    private static boolean payByCard(ItemStack card, Player player, int price) {
+        return !card.isEmpty() && Currency.countsInSpurs() && NumismaticsCards.pay(card, player, price);
     }
 
     /** Gives the player's credit back as coins. Credit the denominations cannot express stays. */
