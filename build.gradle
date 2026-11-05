@@ -33,6 +33,9 @@ dependencies {
     compileOnly "curse.maven:numismatics-889722:${numismatics_file_id}"
     runMods "maven.modrinth:create:${create_version_id}"
     runMods "curse.maven:numismatics-889722:${numismatics_file_id}"
+    compileOnly "maven.modrinth:ae2:${ae2_version_id}"
+    runMods "maven.modrinth:ae2:${ae2_version_id}"
+    runMods "maven.modrinth:guideme:${guideme_version_id}"
 }
 
 def copyRunMods = tasks.register('copyRunMods', Sync) {

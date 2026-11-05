@@ -22,13 +22,13 @@ Each JSON file in `data/<namespace>/vendingmachine/trades/` is a price table: an
 
 Every trade is open to every player from the start, and can be bought again with no wait and no limit. The screen filters by category and by search text on the item name.
 
-A purchase is all or nothing. With too little credit, or no room for the stack in the machine's output slots, nothing is taken.
+A purchase is all or nothing. If payment is unavailable, or there is no room for the whole stack in the machine's output slots, nothing is taken.
 
 Every price and sell price must be a multiple of the smallest coin's value. A trade that breaks a rule is logged and skipped; the rest of its file still loads.
 
 ## Currency
 
-Inserted coins become credit for the player who inserted them. **Return Coins** gives the credit back as coins, and breaking the machine drops all credit as coins.
+Inserted coins and any overpayment from ME storage become player credit. **Return Coins** gives credit back as coins, and breaking the machine drops all credit as coins.
 
 `config/vendingmachine-common.toml` sets the accepted coins:
 
@@ -46,6 +46,10 @@ The currency is read once when the game or dedicated server launches; restart it
 
 The card slot takes a Numismatics bank card or authorized card whatever the currency. A card pays only while the currency is the Numismatics default. A bound card pays from its bank account when the player may use that account; an authorized card pays from the shared account it was made for when the player is trusted on it. The card pays first, as at a Numismatics Vendor. Credit from inserted coins pays only when there is no card or the card cannot pay. A refused purchase takes nothing from either. The card goes back to the player when the screen closes.
 
+## ME storage
+
+With Applied Energistics 2 installed, the machine joins an adjacent AE2 network like any network block. When there is no card, or the card cannot pay, and the player's credit is too low, the machine takes coin items worth the missing value from the network's ME storage. It checks with a simulated extract first and takes nothing unless the coins cover the whole shortfall. Coins are taken largest first; when they cannot match the shortfall exactly, one more coin covers it and the overpaid part stays as the player's credit. The network must be powered. Only the player who placed the machine may pay from its ME storage; other players pay with coins or a card.
+
 ## Building
 
-`./gradlew build` makes the jar. `./gradlew runGameTestServer` runs the GameTests with Create and Create: Numismatics loaded.
+`./gradlew build` makes the jar. `./gradlew runGameTestServer` runs the GameTests with Create, Create: Numismatics and Applied Energistics 2 loaded.

@@ -113,6 +113,41 @@ public final class Currency {
         return out;
     }
 
+    /**
+     * How many of each coin to take from a store that holds {@code available[i]} of {@code denominations().get(i)},
+     * so the coins taken are worth at least {@code amount}. Largest coins first; when they cannot match exactly, one
+     * more coin covers the rest and the caller keeps the overpaid part as credit. Null when the store holds too little.
+     */
+    public static long[] cover(long amount, long[] available) {
+        List<Denomination> d = denominations();
+        long[] take = new long[d.size()];
+        long rest = amount;
+        for (int i = 0; i < take.length; i++) {
+            take[i] = Math.min(available[i], rest / d.get(i)
+                .value());
+            rest -= take[i] * d.get(i)
+                .value();
+        }
+        for (int i = take.length - 1; rest > 0 && i >= 0; i--) {
+            if (d.get(i)
+                .value() >= rest && available[i] > take[i]) {
+                take[i]++;
+                rest -= d.get(i)
+                    .value();
+            }
+        }
+        if (rest > 0) return null;
+        for (int i = take.length - 1; i >= 0; i--) {
+            long value = d.get(i)
+                .value();
+            while (take[i] > 0 && value <= -rest) {
+                take[i]--;
+                rest += value;
+            }
+        }
+        return take;
+    }
+
     public static long total(List<ItemStack> stacks) {
         return stacks.stream()
             .mapToLong(Currency::valueOf)

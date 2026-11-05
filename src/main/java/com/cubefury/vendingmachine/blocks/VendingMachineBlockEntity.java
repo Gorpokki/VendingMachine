@@ -18,12 +18,14 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.items.ItemStackHandler;
 
 import com.cubefury.vendingmachine.Registration;
 import com.cubefury.vendingmachine.VendingMachine;
 import com.cubefury.vendingmachine.blocks.gui.VendingMachineMenu;
+import com.cubefury.vendingmachine.integration.MeStorageLink;
 import com.cubefury.vendingmachine.integration.NumismaticsCards;
 import com.cubefury.vendingmachine.trade.Trade;
 import com.cubefury.vendingmachine.util.Currency;
@@ -44,8 +46,35 @@ public class VendingMachineBlockEntity extends BlockEntity {
         }
     };
 
+    /** Null unless Applied Energistics 2 is installed. */
+    private final MeStorageLink meStorageLink;
+
     public VendingMachineBlockEntity(BlockPos pos, BlockState state) {
         super(Registration.VENDING_MACHINE_BE.get(), pos, state);
+        meStorageLink = ModList.get()
+            .isLoaded("ae2") ? new MeStorageLink(this) : null;
+    }
+
+    public MeStorageLink meStorageLink() {
+        return meStorageLink;
+    }
+
+    @Override
+    public void clearRemoved() {
+        super.clearRemoved();
+        if (meStorageLink != null) meStorageLink.create(this);
+    }
+
+    @Override
+    public void setRemoved() {
+        super.setRemoved();
+        if (meStorageLink != null) meStorageLink.destroy();
+    }
+
+    @Override
+    public void onChunkUnloaded() {
+        super.onChunkUnloaded();
+        if (meStorageLink != null) meStorageLink.destroy();
     }
 
     public MenuProvider menuProvider(List<Trade> trades) {
@@ -65,6 +94,11 @@ public class VendingMachineBlockEntity extends BlockEntity {
         };
     }
 
+    /** Makes the placing player the owner of the machine's AE2 node, the only player who may pay from its network. */
+    public void placedBy(Player player) {
+        if (meStorageLink != null) meStorageLink.setOwner(player);
+    }
+
     public long credit(UUID player) {
         return credit.getOrDefault(player, 0L);
     }
@@ -77,13 +111,18 @@ public class VendingMachineBlockEntity extends BlockEntity {
 
     /**
      * Buys a trade. A Numismatics card pays first, as at a Numismatics Vendor; the player's credit pays when there is
-     * no card or the card cannot pay. All or nothing: with too little money, or no room in the output for the whole
-     * stack, nothing changes.
+     * no card or the card cannot pay, and coins from a connected AE2 network's ME storage make up any shortfall. All or
+     * nothing: with too little money, or no room in the output for the whole stack, nothing changes.
      */
     public boolean buy(Player player, Trade trade, ItemStack card) {
         if (!fitsInOutput(trade.item())) return false;
         if (!payByCard(card, player, trade.price())) {
             long have = credit(player.getUUID());
+            if (have < trade.price() && meStorageLink != null) {
+                // Coins taken from ME storage become credit first, so an overpaid coin stays refundable.
+                have += meStorageLink.take(player, trade.price() - have);
+                setCredit(player.getUUID(), have);
+            }
             if (have < trade.price()) return false;
             setCredit(player.getUUID(), have - trade.price());
         }
@@ -150,6 +189,7 @@ public class VendingMachineBlockEntity extends BlockEntity {
             list.add(entry);
         });
         tag.put("credit", list);
+        if (meStorageLink != null) meStorageLink.save(tag);
     }
 
     @Override
@@ -161,5 +201,6 @@ public class VendingMachineBlockEntity extends BlockEntity {
             CompoundTag entry = (CompoundTag) t;
             credit.put(entry.getUUID("player"), entry.getLong("amount"));
         }
+        if (meStorageLink != null) meStorageLink.load(tag);
     }
 }
