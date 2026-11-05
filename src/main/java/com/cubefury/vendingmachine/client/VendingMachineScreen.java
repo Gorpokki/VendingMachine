@@ -124,8 +124,8 @@ public class VendingMachineScreen extends AbstractContainerScreen<VendingMachine
     @Override
     protected void renderLabels(GuiGraphics g, int mouseX, int mouseY) {
         super.renderLabels(g, mouseX, mouseY);
-        g.drawString(font, Component.translatable("vendingmachine.gui.credit", menu.credit()), 8, 101, 0x404040,
-            false);
+        g.drawString(font, Component.translatable("vendingmachine.gui.credit"), 8, 95, 0x404040, false);
+        g.drawString(font, String.valueOf(menu.credit()), 8, 104, 0x404040, false);
     }
 
     @Override
