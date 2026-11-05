@@ -14,13 +14,14 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import com.cubefury.vendingmachine.VendingMachine;
 import com.cubefury.vendingmachine.util.Currency;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 
 /**
- * The catalogue. Each file in {@code data/<namespace>/vendingmachine/trades/} is one trade. A data pack reload
- * replaces the whole catalogue.
+ * The catalogue. Each file in {@code data/<namespace>/vendingmachine/trades/} is a JSON array of entries. A data pack
+ * reload replaces the whole catalogue, and menus opened on the old catalogue close.
  */
 public class TradeDatabase extends SimpleJsonResourceReloadListener {
 
@@ -41,26 +42,41 @@ public class TradeDatabase extends SimpleJsonResourceReloadListener {
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> files, ResourceManager manager, ProfilerFiller profiler) {
-        trades = parse(files, registries.createSerializationContext(JsonOps.INSTANCE));
+        load(files, registries.createSerializationContext(JsonOps.INSTANCE));
+    }
+
+    /** Replaces the catalogue with the entries parsed from {@code files}. */
+    public static void load(Map<ResourceLocation, JsonElement> files, DynamicOps<JsonElement> ops) {
+        trades = parse(files, ops);
         VendingMachine.LOG.info("Loaded {} vending machine trades", trades.size());
     }
 
-    /** Parses trade files in id order; a broken file, or a price no coin combination pays, is logged and skipped. */
+    /** Parses files in id order and entries in file order; a broken file or entry is logged and skipped. */
     public static List<Trade> parse(Map<ResourceLocation, JsonElement> files, DynamicOps<JsonElement> ops) {
         List<Trade> parsed = new ArrayList<>();
-        new TreeMap<>(files).forEach(
-            (id, json) -> Trade.CODEC.parse(ops, json)
-                .resultOrPartial(err -> VendingMachine.LOG.error("Skipping trade {}: {}", id, err))
-                .ifPresent(trade -> {
-                    if (Currency.payable(trade.price())) {
-                        parsed.add(trade);
-                    } else {
-                        VendingMachine.LOG.error(
-                            "Skipping trade {}: price {} is not a multiple of the smallest coin",
-                            id,
-                            trade.price());
-                    }
-                }));
+        new TreeMap<>(files).forEach((id, json) -> {
+            if (!(json instanceof JsonArray entries)) {
+                VendingMachine.LOG.error("Skipping trade file {}: expected a JSON array of entries", id);
+                return;
+            }
+            for (int i = 0; i < entries.size(); i++) {
+                String where = id + "[" + i + "]";
+                Trade.CODEC.parse(ops, entries.get(i))
+                    .resultOrPartial(err -> VendingMachine.LOG.error("Skipping trade {}: {}", where, err))
+                    .filter(trade -> payable(where, trade))
+                    .ifPresent(parsed::add);
+            }
+        });
         return List.copyOf(parsed);
+    }
+
+    private static boolean payable(String where, Trade trade) {
+        boolean ok = Currency.payable(trade.price()) && trade.sellPrice()
+            .map(Currency::payable)
+            .orElse(true);
+        if (!ok) {
+            VendingMachine.LOG.error("Skipping trade {}: a price is not a multiple of the smallest coin", where);
+        }
+        return ok;
     }
 }

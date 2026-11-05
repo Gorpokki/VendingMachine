@@ -1,5 +1,1 @@
-{
-  "block.vendingmachine.vending_machine": "Vending Machine",
-  "vendingmachine.gui.coin_eject": "Return Coins",
-  "vendingmachine.gui.credit": "Credit: %s"
-}
+{"block.vendingmachine.vending_machine":"Vending Machine","vendingmachine.gui.all_categories":"All","vendingmachine.gui.coin_eject":"Return Coins","vendingmachine.gui.credit":"Credit: %s","vendingmachine.gui.search":"Search"}

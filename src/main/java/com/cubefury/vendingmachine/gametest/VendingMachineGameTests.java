@@ -2,6 +2,7 @@ package com.cubefury.vendingmachine.gametest;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -15,6 +16,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -25,7 +27,9 @@ import com.cubefury.vendingmachine.blocks.gui.VendingMachineMenu;
 import com.cubefury.vendingmachine.trade.Trade;
 import com.cubefury.vendingmachine.trade.TradeDatabase;
 import com.cubefury.vendingmachine.util.Currency;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
+import com.mojang.serialization.DynamicOps;
 import com.mojang.serialization.JsonOps;
 
 /** Runs with Create and Create: Numismatics loaded, so the default currency is Numismatics coins. */
@@ -34,7 +38,7 @@ import com.mojang.serialization.JsonOps;
 public class VendingMachineGameTests {
 
     private static final BlockPos MACHINE = new BlockPos(1, 1, 1);
-    private static final Trade BREAD = new Trade(64, List.of(new ItemStack(Items.BREAD, 3)));
+    private static final Trade BREAD = new Trade(new ItemStack(Items.BREAD, 3), 64, Optional.empty(), "food");
 
     private static Item coin(String name) {
         return BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("numismatics", name));
@@ -159,21 +163,78 @@ public class VendingMachineGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void catalogueFileParses(GameTestHelper h) {
-        var json = JsonParser.parseString(
-            "{\"price\":64,\"results\":[{\"id\":\"minecraft:bread\",\"count\":3}]}");
-        var ops = h.getLevel()
+    public static void buySameEntryAgain(GameTestHelper h) {
+        VendingMachineBlockEntity machine = placeMachine(h);
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineMenu menu = openMenu(player, machine, BREAD);
+        insert(menu, new ItemStack(coin("cog"), 2));
+        h.assertTrue(menu.clickMenuButton(player, VendingMachineMenu.BUTTON_FIRST_TRADE), "first buy should succeed");
+        h.assertTrue(menu.clickMenuButton(player, VendingMachineMenu.BUTTON_FIRST_TRADE), "second buy should succeed");
+        h.assertTrue(machine.credit(player.getUUID()) == 0, "both buys should take the price");
+        h.assertTrue(
+            machine.output.getStackInSlot(0)
+                .getCount() == 6,
+            "output should hold bread from both buys");
+        h.succeed();
+    }
+
+    private static DynamicOps<JsonElement> ops(GameTestHelper h) {
+        return h.getLevel()
             .registryAccess()
             .createSerializationContext(JsonOps.INSTANCE);
-        List<Trade> trades = TradeDatabase
-            .parse(Map.of(ResourceLocation.fromNamespaceAndPath("test", "bread"), json), ops);
-        h.assertTrue(trades.size() == 1, "one trade should load");
-        Trade t = trades.get(0);
-        h.assertTrue(t.price() == 64 && t.displayItem()
+    }
+
+    @GameTest(template = "empty")
+    public static void catalogueFileParses(GameTestHelper h) {
+        var table = JsonParser.parseString("""
+            [
+              {"item": {"id": "minecraft:bread", "count": 3}, "price": 64, "sell_price": 8, "category": "food"},
+              {"item": {"id": "minecraft:stone"}, "price": 1},
+              {"item": {"id": "minecraft:apple"}, "price": 2, "category": "food"}
+            ]""");
+        var notATable = JsonParser.parseString("{\"item\": {\"id\": \"minecraft:dirt\"}, \"price\": 1, \"category\": \"x\"}");
+        List<Trade> trades = TradeDatabase.parse(
+            Map.of(
+                ResourceLocation.fromNamespaceAndPath("test", "food"),
+                table,
+                ResourceLocation.fromNamespaceAndPath("test", "single"),
+                notATable),
+            ops(h));
+        h.assertTrue(trades.size() == 2, "bread and apple should load; stone has no category, single is no array");
+        Trade bread = trades.get(0);
+        h.assertTrue(bread.item()
             .is(Items.BREAD)
-            && t.displayItem()
-                .getCount() == 3,
-            "trade fields should match the file");
+            && bread.item()
+                .getCount() == 3
+            && bread.price() == 64
+            && bread.sellPrice()
+                .equals(Optional.of(8))
+            && bread.category()
+                .equals("food"),
+            "bread fields should match the file");
+        Trade apple = trades.get(1);
+        h.assertTrue(apple.item()
+            .is(Items.APPLE)
+            && apple.sellPrice()
+                .isEmpty(),
+            "apple should load with no sell price");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void reloadClosesOpenMenu(GameTestHelper h) {
+        VendingMachineBlockEntity machine = placeMachine(h);
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        player.setPos(h.absoluteVec(new Vec3(2.5, 1, 1.5)));
+        var bread = JsonParser.parseString(
+            "[{\"item\": {\"id\": \"minecraft:bread\"}, \"price\": 1, \"category\": \"food\"}]");
+        TradeDatabase.load(Map.of(ResourceLocation.fromNamespaceAndPath("test", "reload"), bread), ops(h));
+        VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, TradeDatabase.trades());
+        h.assertTrue(menu.stillValid(player), "menu on the current catalogue should stay open");
+        TradeDatabase.load(Map.of(), ops(h));
+        h.assertFalse(menu.stillValid(player), "menu on a replaced catalogue should close");
+        h.assertTrue(TradeDatabase.trades()
+            .isEmpty(), "removed entries should be gone");
         h.succeed();
     }
 

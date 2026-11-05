@@ -76,14 +76,13 @@ public class VendingMachineBlockEntity extends BlockEntity {
 
     /**
      * Buys a trade with the player's credit. All or nothing: with too little credit, or no room in the output for
-     * every result, nothing changes.
+     * the whole stack, nothing changes.
      */
     public boolean buy(UUID player, Trade trade) {
         long have = credit(player);
-        if (have < trade.price() || !fitsInOutput(trade.results())) return false;
-        for (ItemStack result : trade.results()) {
-            ItemHandlerHelper.insertItemStacked(output, result.copy(), false);
-        }
+        if (have < trade.price() || !fitsInOutput(trade.item())) return false;
+        ItemHandlerHelper.insertItemStacked(output, trade.item()
+            .copy(), false);
         setCredit(player, have - trade.price());
         return true;
     }
@@ -125,16 +124,9 @@ public class VendingMachineBlockEntity extends BlockEntity {
         setChanged();
     }
 
-    private boolean fitsInOutput(List<ItemStack> results) {
-        ItemStackHandler copy = new ItemStackHandler(output.getSlots());
-        for (int i = 0; i < output.getSlots(); i++) {
-            copy.setStackInSlot(i, output.getStackInSlot(i).copy());
-        }
-        for (ItemStack result : results) {
-            if (!ItemHandlerHelper.insertItemStacked(copy, result.copy(), false)
-                .isEmpty()) return false;
-        }
-        return true;
+    private boolean fitsInOutput(ItemStack item) {
+        return ItemHandlerHelper.insertItemStacked(output, item.copy(), true)
+            .isEmpty();
     }
 
     @Override

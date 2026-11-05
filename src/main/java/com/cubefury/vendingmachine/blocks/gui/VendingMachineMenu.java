@@ -19,6 +19,7 @@ import net.neoforged.neoforge.items.SlotItemHandler;
 import com.cubefury.vendingmachine.Registration;
 import com.cubefury.vendingmachine.blocks.VendingMachineBlockEntity;
 import com.cubefury.vendingmachine.trade.Trade;
+import com.cubefury.vendingmachine.trade.TradeDatabase;
 import com.cubefury.vendingmachine.util.Currency;
 
 /**
@@ -150,9 +151,11 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         return original;
     }
 
+    /** Closes the menu when a reload replaced the catalogue it was opened with. */
     @Override
     public boolean stillValid(Player player) {
-        return stillValid(access, player, Registration.VENDING_MACHINE.get());
+        return (machine == null || trades == TradeDatabase.trades())
+            && stillValid(access, player, Registration.VENDING_MACHINE.get());
     }
 
     @Override
