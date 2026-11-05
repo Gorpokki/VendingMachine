@@ -50,7 +50,7 @@ public class MeStorageGameTests {
         return item("numismatics", name);
     }
 
-    private static VendingMachineBlockEntity buildNetwork(GameTestHelper h) {
+    private static VendingMachineBlockEntity buildNetwork(GameTestHelper h, Player owner) {
         h.setBlock(MACHINE, Registration.VENDING_MACHINE.get());
         h.setBlock(DRIVE, BuiltInRegistries.BLOCK.get(ResourceLocation.fromNamespaceAndPath("ae2", "drive")));
         h.setBlock(ENERGY,
@@ -58,7 +58,9 @@ public class MeStorageGameTests {
         DriveBlockEntity drive = h.getBlockEntity(DRIVE);
         drive.getInternalInventory()
             .addItems(new ItemStack(item("ae2", "item_storage_cell_1k")));
-        return h.getBlockEntity(MACHINE);
+        VendingMachineBlockEntity machine = h.getBlockEntity(MACHINE);
+        machine.placedBy(owner);
+        return machine;
     }
 
     private static MEStorage storage(GameTestHelper h, VendingMachineBlockEntity machine) {
@@ -82,12 +84,12 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void paysFromMeStorage(GameTestHelper h) {
-        VendingMachineBlockEntity machine = buildNetwork(h);
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
             store(storage, coin("spur"), 64);
             store(storage, coin("cog"), 1);
-            Player player = h.makeMockPlayer(GameType.SURVIVAL);
             VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, List.of(BREAD));
             h.assertTrue(buy(player, menu), "ME storage should pay");
             h.assertTrue(stored(storage, coin("cog")) == 0, "the cog (64 spurs) should pay the price of 64");
@@ -103,11 +105,11 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void meStorageCoversCreditShortfall(GameTestHelper h) {
-        VendingMachineBlockEntity machine = buildNetwork(h);
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
             store(storage, coin("cog"), 1);
-            Player player = h.makeMockPlayer(GameType.SURVIVAL);
             VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, List.of(BREAD));
             menu.getSlot(VendingMachineMenu.COIN_SLOT)
                 .set(new ItemStack(coin("spur"), 60));
@@ -120,11 +122,11 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void refuseWhenMeStorageLacksCoins(GameTestHelper h) {
-        VendingMachineBlockEntity machine = buildNetwork(h);
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
             store(storage, coin("spur"), 10);
-            Player player = h.makeMockPlayer(GameType.SURVIVAL);
             VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, List.of(BREAD));
             h.assertFalse(buy(player, menu), "buy should be refused");
             h.assertTrue(stored(storage, coin("spur")) == 10, "ME storage should be unchanged");
@@ -133,6 +135,24 @@ public class MeStorageGameTests {
                 machine.output.getStackInSlot(0)
                     .isEmpty(),
                 "output should stay empty");
+            h.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void refuseMeStorageForPlayerWhoDoesNotOwnNetwork(GameTestHelper h) {
+        Player owner = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineBlockEntity machine = buildNetwork(h, owner);
+        h.runAfterDelay(BOOT_TICKS, () -> {
+            MEStorage storage = storage(h, machine);
+            store(storage, coin("cog"), 1);
+            Player stranger = h.makeMockPlayer(GameType.SURVIVAL);
+            VendingMachineMenu menu = new VendingMachineMenu(0, stranger.getInventory(), machine, List.of(BREAD));
+            h.assertFalse(
+                buy(stranger, menu),
+                "a player who does not own the network should not pay from its ME storage");
+            h.assertTrue(stored(storage, coin("cog")) == 1, "ME storage should be unchanged");
+            h.assertTrue(machine.credit(stranger.getUUID()) == 0, "stranger should get no credit");
             h.succeed();
         });
     }

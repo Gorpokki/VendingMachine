@@ -132,10 +132,20 @@ public final class Currency {
             if (d.get(i)
                 .value() >= rest && available[i] > take[i]) {
                 take[i]++;
-                rest = 0;
+                rest -= d.get(i)
+                    .value();
             }
         }
-        return rest > 0 ? null : take;
+        if (rest > 0) return null;
+        for (int i = take.length - 1; i >= 0; i--) {
+            long value = d.get(i)
+                .value();
+            while (take[i] > 0 && value <= -rest) {
+                take[i]--;
+                rest += value;
+            }
+        }
+        return take;
     }
 
     public static long total(List<ItemStack> stacks) {

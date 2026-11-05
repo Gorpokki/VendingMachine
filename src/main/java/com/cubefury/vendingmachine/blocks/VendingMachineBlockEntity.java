@@ -94,6 +94,11 @@ public class VendingMachineBlockEntity extends BlockEntity {
         };
     }
 
+    /** Makes the placing player the owner of the machine's AE2 node, the only player who may pay from its network. */
+    public void placedBy(Player player) {
+        if (meStorageLink != null) meStorageLink.setOwner(player);
+    }
+
     public long credit(UUID player) {
         return credit.getOrDefault(player, 0L);
     }

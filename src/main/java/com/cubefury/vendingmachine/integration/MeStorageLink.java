@@ -56,6 +56,10 @@ public final class MeStorageLink implements IInWorldGridNodeHost {
         GridHelper.onFirstTick(machine, m -> node.create(m.getLevel(), m.getBlockPos()));
     }
 
+    public void setOwner(Player player) {
+        node.setOwningPlayer(player);
+    }
+
     public void destroy() {
         node.destroy();
     }
@@ -76,13 +80,13 @@ public final class MeStorageLink implements IInWorldGridNodeHost {
     }
 
     /**
-     * Takes coin items worth at least {@code amount} from ME storage and returns their value. Simulates first and takes
-     * nothing, returning 0, unless the coins cover the whole amount.
+     * Takes coin items worth at least {@code amount} from ME storage and returns their value. Only the network's owner
+     * may spend it. Simulates first and takes nothing, returning 0, unless the coins cover the whole amount.
      */
     public long take(Player player, long amount) {
         MEStorage storage = storage();
         List<Denomination> coins = Currency.denominations();
-        if (storage == null || coins.isEmpty()) return 0;
+        if (storage == null || coins.isEmpty() || !isOwner(player)) return 0;
         IActionSource source = IActionSource.ofPlayer(player);
         long[] available = new long[coins.size()];
         for (int i = 0; i < available.length; i++) {
@@ -98,6 +102,12 @@ public final class MeStorageLink implements IInWorldGridNodeHost {
                 .value();
         }
         return value;
+    }
+
+    private boolean isOwner(Player player) {
+        return player.getUUID()
+            .equals(node.getNode()
+                .getOwningPlayerId());
     }
 
     private static AEItemKey key(List<Denomination> coins, int i) {
