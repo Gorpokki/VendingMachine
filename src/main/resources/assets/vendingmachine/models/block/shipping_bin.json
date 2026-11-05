@@ -1,0 +1,4 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": { "side": "minecraft:block/barrel_side", "end": "minecraft:block/barrel_top_open" }
+}

@@ -17,7 +17,7 @@ Each JSON file in `data/<namespace>/vendingmachine/trades/` is a price table: an
 
 - `item`: the item stack the buyer gets (required).
 - `price`: cost in currency units (required, more than 0).
-- `sell_price`: what a selling block may pay for the same stack (optional, more than 0). The machine itself does not buy items.
+- `sell_price`: what the shipping bin pays for the same stack (optional, more than 0). The machine itself does not buy items.
 - `category`: the category the screen filters by (required). The screen shows the `vendingmachine.category.<category>` translation, or the raw name when there is none.
 
 Every trade is open to every player from the start, and can be bought again with no wait and no limit. The screen filters by category and by search text on the item name.
@@ -49,6 +49,10 @@ The card slot takes a Numismatics bank card or authorized card whatever the curr
 ## ME storage
 
 With Applied Energistics 2 installed, the machine joins an adjacent AE2 network like any network block. When there is no card, or the card cannot pay, and the player's credit is too low, the machine takes coin items worth the missing value from the network's ME storage. It checks with a simulated extract first and takes nothing unless the coins cover the whole shortfall. Coins are taken largest first; when they cannot match the shortfall exactly, one more coin covers it and the overpaid part stays as the player's credit. The network must be powered. Only the player who placed the machine may pay from its ME storage; other players pay with coins or a card.
+
+## Shipping bin
+
+The shipping bin is a chest-sized block that buys items. Each item with a `sell_price` in the catalogue sells in whole lots of the entry's stack size, counted across every slot of the bin, and the bin pays in coin items placed in the bin, never into a bank account. A sale happens whenever the bin's contents change. Items with no sell price, leftovers smaller than one lot, and coins stay in the bin. When the coins do not fit, nothing sells and every item stays.
 
 ## Building
 
