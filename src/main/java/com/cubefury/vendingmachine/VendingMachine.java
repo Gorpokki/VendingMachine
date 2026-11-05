@@ -2,6 +2,7 @@ package com.cubefury.vendingmachine;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
@@ -11,6 +12,7 @@ import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cubefury.vendingmachine.integration.MeStorageLink;
 import com.cubefury.vendingmachine.trade.TradeDatabase;
 import com.cubefury.vendingmachine.util.Currency;
 
@@ -26,5 +28,9 @@ public class VendingMachine {
         modBus.addListener(ModConfigEvent.Loading.class, e -> Currency.invalidate());
         NeoForge.EVENT_BUS.addListener(AddReloadListenerEvent.class,
             e -> e.addListener(new TradeDatabase(e.getRegistryAccess())));
+        if (ModList.get()
+            .isLoaded("ae2")) {
+            modBus.addListener(MeStorageLink::registerCapabilities);
+        }
     }
 }
