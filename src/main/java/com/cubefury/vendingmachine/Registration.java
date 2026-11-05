@@ -18,6 +18,8 @@ import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
+import com.cubefury.vendingmachine.blocks.ShippingBinBlock;
+import com.cubefury.vendingmachine.blocks.ShippingBinBlockEntity;
 import com.cubefury.vendingmachine.blocks.VendingMachineBlock;
 import com.cubefury.vendingmachine.blocks.VendingMachineBlockEntity;
 import com.cubefury.vendingmachine.blocks.gui.VendingMachineMenu;
@@ -52,6 +54,22 @@ public final class Registration {
     public static final Supplier<MenuType<VendingMachineMenu>> VENDING_MACHINE_MENU = MENUS
         .register("vending_machine", () -> IMenuTypeExtension.create(VendingMachineMenu::new));
 
+    public static final DeferredBlock<ShippingBinBlock> SHIPPING_BIN = BLOCKS.register(
+        "shipping_bin",
+        () -> new ShippingBinBlock(
+            BlockBehaviour.Properties.of()
+                .mapColor(MapColor.WOOD)
+                .strength(2.5F)
+                .sound(SoundType.WOOD)));
+
+    public static final DeferredItem<BlockItem> SHIPPING_BIN_ITEM = ITEMS
+        .registerSimpleBlockItem(SHIPPING_BIN, new Item.Properties());
+
+    public static final Supplier<BlockEntityType<ShippingBinBlockEntity>> SHIPPING_BIN_BE = BLOCK_ENTITIES.register(
+        "shipping_bin",
+        () -> BlockEntityType.Builder.of(ShippingBinBlockEntity::new, SHIPPING_BIN.get())
+            .build(null));
+
     private Registration() {}
 
     static void register(IEventBus modBus) {
@@ -60,7 +78,10 @@ public final class Registration {
         BLOCK_ENTITIES.register(modBus);
         MENUS.register(modBus);
         modBus.addListener(BuildCreativeModeTabContentsEvent.class, e -> {
-            if (e.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) e.accept(VENDING_MACHINE_ITEM);
+            if (e.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS) {
+                e.accept(VENDING_MACHINE_ITEM);
+                e.accept(SHIPPING_BIN_ITEM);
+            }
         });
     }
 }
