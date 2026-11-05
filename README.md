@@ -22,13 +22,13 @@ Each JSON file in `data/<namespace>/vendingmachine/trades/` is a price table: an
 
 Every trade is open to every player from the start, and can be bought again with no wait and no limit. The screen filters by category and by search text on the item name.
 
-A purchase is all or nothing. With too little credit, or no room for the stack in the machine's output slots, nothing is taken.
+A purchase is all or nothing. If payment is unavailable, or there is no room for the whole stack in the machine's output slots, nothing is taken.
 
 Every price and sell price must be a multiple of the smallest coin's value. A trade that breaks a rule is logged and skipped; the rest of its file still loads.
 
 ## Currency
 
-Inserted coins become credit for the player who inserted them. **Return Coins** gives the credit back as coins, and breaking the machine drops all credit as coins.
+Inserted coins and any overpayment from ME storage become player credit. **Return Coins** gives credit back as coins, and breaking the machine drops all credit as coins.
 
 `config/vendingmachine-common.toml` sets the accepted coins:
 
