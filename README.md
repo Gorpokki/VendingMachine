@@ -1,51 +1,43 @@
 ## Introduction
 
-This mod adds a vending machine, unlocking trades based on questbook data. If you have AE2 installed, it will also add an AE2 vending terminal, which will allow you perform trades directly with items from your ME system.
+A NeoForge 1.21.1 port of the GTNH Vending Machine. A player places the machine, inserts coins, and buys trades from a catalogue that lives in data files.
 
-### Structure
+The original 1.7.10 mod is on the `master` branch. This branch keeps its trade model (currency in, items out), its per-player wallet, and its screen layout. The GregTech multiblock, ModularUI2, NEI and BetterQuesting parts do not exist on 1.21.1, so the block, screen and quest parts are rewritten. Quest unlocks are not ported.
 
-![img.png](img.png)
+## Trades
 
-### Interface
-![img_1.png](img_1.png)
+Each JSON file in `data/<namespace>/vendingmachine/trades/` is one trade. A data pack reload replaces the whole catalogue.
 
-### Command
+```json
+{
+  "price": 64,
+  "results": [{ "id": "minecraft:bread", "count": 3 }]
+}
+```
 
-**Note: All commands require OP to run**.
+- `price`: cost in currency units (required, more than 0).
+- `results`: the item stacks the buyer gets (required, at least one).
 
-If your command still refuses to run, ensure your OP permission level in server.properties is set to 4.
+A purchase is all or nothing. With too little credit, or no room for every result in the machine's output slots, nothing is taken.
 
-|Task| Command                                           |
-|--|---------------------------------------------------|
-|**Set coin**| `/vending set [player] <coin_type\|all> <amount>` |
-|**Add coin**| `/vending add [player] <coin_type\|all> <amount>` |
-|**Reset coins**| `/vending reset [player] <coin_type\|all>` |
-|**Reload database** | `/vending reload database` |
-|**Reload trade state**| `/vending reload tradestate [player]` |
+Every price must be a multiple of the smallest coin's value. A trade whose price is not is logged and skipped.
 
-## Current Status
+## Currency
 
-Alpha Testing
+Inserted coins become credit for the player who inserted them. **Return Coins** gives the credit back as coins, and breaking the machine drops all credit as coins.
 
-## For Non-GTNH Modpacks
+`config/vendingmachine-common.toml` sets the accepted coins:
 
-This can be used as a standalone mod with several dependencies. The vending machine block and ME Vending Uplink do not come with default recipes.
+```toml
+currency = ["minecraft:emerald=1", "minecraft:emerald_block=9"]
+```
 
-### Required Dependencies:
-- GT5Unofficial-GTNH (Not compatible with main GT5U branch!)
-- ModularUI 2
-- NotEnoughItems
-- Applied Energistics 2
+With an empty list (the default) and Create: Numismatics installed, the machine takes Numismatics coins at their Numismatics values, counted in spurs.
 
-### Optional Dependencies:
-- BetterQuesting
+Every coin's value must be a multiple of the smallest coin's value, and each item may appear only once. Otherwise the machine accepts no currency and logs an error.
 
-## Credits
+The currency is read once when the game or dedicated server launches; restart it after changing `currency`. Changing `currency` on a world that already holds stored credit can strand remainders the new coins cannot pay out; each one is logged when the machine pays out or breaks.
 
-Credits to **BetterQuesting** for their implementation of networking and file serialization/deserialization, which are used in this project. We do not reference the classes directly to avoid having BetterQuesting as a required dependency.
+## Building
 
-Credits to **NH Coremod** for the coin textures used in the GUI.
-
-The BetterQuesting license may be found in the root directory of this project as LICENSE.betterquesting.
-
-The NHCoreMod licenese may be found in the root directory of this project as LICENSE.NewHorizonsCoreMod.
+`./gradlew build` makes the jar. `./gradlew runGameTestServer` runs the GameTests with Create and Create: Numismatics loaded.

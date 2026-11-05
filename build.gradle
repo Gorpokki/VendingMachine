@@ -1,0 +1,101 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    exclusiveContent {
+        forRepository { maven { url = 'https://api.modrinth.com/maven' } }
+        filter { includeGroup 'maven.modrinth' }
+    }
+    exclusiveContent {
+        forRepository { maven { url = 'https://www.cursemaven.com' } }
+        filter { includeGroup 'curse.maven' }
+    }
+}
+
+configurations {
+    // Mod jars loaded from the run's mods folder, so their bundled jars load too.
+    runMods { transitive = false }
+}
+
+dependencies {
+    compileOnly "maven.modrinth:create:${create_version_id}"
+    compileOnly "curse.maven:numismatics-889722:${numismatics_file_id}"
+    runMods "maven.modrinth:create:${create_version_id}"
+    runMods "curse.maven:numismatics-889722:${numismatics_file_id}"
+}
+
+def copyRunMods = tasks.register('copyRunMods', Sync) {
+    from configurations.runMods
+    into layout.projectDirectory.dir('run/mods')
+}
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+        gameTestServer {
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        configureEach {
+            gameDirectory = project.file('run')
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+tasks.matching { it.name.startsWith('run') }.configureEach { dependsOn copyRunMods }
+
+jar {
+    from('LICENSE')
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}

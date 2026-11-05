@@ -1,113 +1,41 @@
 package com.cubefury.vendingmachine.trade;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagList;
-import net.minecraftforge.common.util.Constants;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.item.ItemStack;
 
-import com.cubefury.vendingmachine.integration.betterquesting.gui.PanelQBTrade;
-import com.cubefury.vendingmachine.util.BigItemStack;
-import com.cubefury.vendingmachine.util.ItemPlaceholder;
-import com.cubefury.vendingmachine.util.JsonHelper;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import betterquesting.api2.client.gui.misc.IGuiRect;
-import betterquesting.api2.client.gui.panels.IGuiPanel;
-import cpw.mods.fml.common.Optional;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
+/**
+ * One catalogue entry: pay {@code price} in currency units, receive every stack in {@code results}.
+ */
+public record Trade(int price, List<ItemStack> results) {
 
-public class Trade {
+    public static final Codec<Trade> CODEC = RecordCodecBuilder.create(
+        i -> i.group(
+            ExtraCodecs.POSITIVE_INT.fieldOf("price")
+                .forGetter(Trade::price),
+            ExtraCodecs.nonEmptyList(ItemStack.CODEC.listOf())
+                .fieldOf("results")
+                .forGetter(Trade::results))
+            .apply(i, Trade::new));
 
-    public final List<CurrencyItem> fromCurrency = new ArrayList<>();
-    public final List<BigItemStack> fromItems = new ArrayList<>();
-    public final List<BigItemStack> nonConsumedItems = new ArrayList<>();
-    public final List<BigItemStack> toItems = new ArrayList<>();
-    public BigItemStack displayItem = new BigItemStack(ItemPlaceholder.placeholder);
+    public static final StreamCodec<RegistryFriendlyByteBuf, Trade> STREAM_CODEC = StreamCodec.composite(
+        ByteBufCodecs.VAR_INT,
+        Trade::price,
+        ItemStack.LIST_STREAM_CODEC,
+        Trade::results,
+        Trade::new);
 
-    public NBTTagCompound writeToNBT(NBTTagCompound nbt) {
-        nbt.setTag("displayItem", displayItem.writeToNBT(new NBTTagCompound()));
+    public static final StreamCodec<RegistryFriendlyByteBuf, List<Trade>> LIST_STREAM_CODEC = STREAM_CODEC
+        .apply(ByteBufCodecs.list());
 
-        if (!this.fromCurrency.isEmpty()) {
-            NBTTagList fromCurrencyArray = new NBTTagList();
-            for (CurrencyItem ci : this.fromCurrency) {
-                fromCurrencyArray.appendTag(ci.writeToNBT(new NBTTagCompound()));
-            }
-            nbt.setTag("fromCurrency", fromCurrencyArray);
-        }
-
-        if (!this.fromItems.isEmpty()) {
-            NBTTagList fromItemsArray = new NBTTagList();
-            for (BigItemStack stack : this.fromItems) {
-                fromItemsArray.appendTag(JsonHelper.ItemStackToJson(stack, new NBTTagCompound()));
-            }
-            nbt.setTag("fromItems", fromItemsArray);
-        }
-
-        if (!this.nonConsumedItems.isEmpty()) {
-            NBTTagList ncArray = new NBTTagList();
-            for (BigItemStack stack : this.nonConsumedItems) {
-                ncArray.appendTag(JsonHelper.ItemStackToJson(stack, new NBTTagCompound()));
-            }
-            nbt.setTag("nonConsumedItems", ncArray);
-        }
-
-        if (!this.toItems.isEmpty()) {
-            NBTTagList toItemsArray = new NBTTagList();
-            for (BigItemStack stack : this.toItems) {
-                toItemsArray.appendTag(JsonHelper.ItemStackToJson(stack, new NBTTagCompound()));
-            }
-            nbt.setTag("toItems", toItemsArray);
-        }
-
-        return nbt;
+    public ItemStack displayItem() {
+        return results.get(0);
     }
-
-    public void readFromNBT(NBTTagCompound nbt) {
-        if (nbt.hasKey("displayItem")) {
-            BigItemStack readStack = BigItemStack.loadItemStackFromNBT(nbt.getCompoundTag("displayItem"));
-            displayItem = readStack == null ? displayItem : readStack;
-        }
-
-        fromCurrency.clear();
-        fromItems.clear();
-        toItems.clear();
-
-        NBTTagList currencyList = nbt.getTagList("fromCurrency", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < currencyList.tagCount(); i++) {
-            fromCurrency.add(CurrencyItem.fromNBT(currencyList.getCompoundTagAt(i)));
-        }
-
-        NBTTagList fromList = nbt.getTagList("fromItems", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < fromList.tagCount(); i++) {
-            fromItems.add(JsonHelper.JsonToItemStack(fromList.getCompoundTagAt(i)));
-        }
-
-        NBTTagList ncList = nbt.getTagList("nonConsumedItems", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < ncList.tagCount(); i++) {
-            nonConsumedItems.add(JsonHelper.JsonToItemStack(ncList.getCompoundTagAt(i)));
-        }
-
-        NBTTagList toList = nbt.getTagList("toItems", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < toList.tagCount(); i++) {
-            toItems.add(JsonHelper.JsonToItemStack(toList.getCompoundTagAt(i)));
-        }
-    }
-
-    public ItemStack getDisplayItem() {
-        return this.displayItem.getBaseStack()
-            .isItemEqual(new ItemStack(ItemPlaceholder.placeholder))
-                ? this.toItems.get(0)
-                    .convertToItemStack()
-                : this.displayItem.getBaseStack();
-    }
-
-    @Optional.Method(modid = "betterquesting")
-    @SideOnly(Side.CLIENT)
-    public IGuiPanel getTradeGui(IGuiRect rect) {
-        return new PanelQBTrade(rect, this);
-    }
-
 }
