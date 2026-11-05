@@ -1,6 +1,8 @@
 package com.cubefury.vendingmachine.blocks;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
@@ -50,19 +52,20 @@ public class ShippingBinBlockEntity extends BaseContainerBlockEntity {
      */
     public boolean sell(List<Trade> catalogue) {
         SimpleContainer after = new SimpleContainer(SLOTS);
-        long value = 0;
         for (int i = 0; i < SLOTS; i++) {
-            ItemStack stack = items.get(i);
-            Trade trade = sellable(stack, catalogue);
-            int lots = trade == null ? 0 : stack.getCount() / trade.item()
+            after.setItem(i, items.get(i)
+                .copy());
+        }
+        long value = 0;
+        for (Map.Entry<Trade, Integer> sold : countByTrade(catalogue).entrySet()) {
+            Trade trade = sold.getKey();
+            int lotSize = trade.item()
                 .getCount();
-            if (lots > 0) {
-                value += (long) lots * trade.sellPrice()
-                    .get();
-                stack = stack.copyWithCount(stack.getCount() - lots * trade.item()
-                    .getCount());
-            }
-            after.setItem(i, stack.copy());
+            int lots = sold.getValue() / lotSize;
+            if (lots == 0) continue;
+            value += (long) lots * trade.sellPrice()
+                .get();
+            take(after, trade, lots * lotSize, catalogue);
         }
         List<ItemStack> coins = Currency.makeChange(value);
         if (value == 0 || Currency.total(coins) != value) return false;
@@ -75,6 +78,28 @@ public class ShippingBinBlockEntity extends BaseContainerBlockEntity {
         }
         setChanged();
         return true;
+    }
+
+    /** Total count of each sellable item across every slot, keyed by the catalogue entry it sells under. */
+    private Map<Trade, Integer> countByTrade(List<Trade> catalogue) {
+        Map<Trade, Integer> counts = new HashMap<>();
+        for (ItemStack stack : items) {
+            Trade trade = sellable(stack, catalogue);
+            if (trade != null) counts.merge(trade, stack.getCount(), Integer::sum);
+        }
+        return counts;
+    }
+
+    /** Removes {@code amount} items that sell under {@code trade}, slot by slot, from the planned contents. */
+    private static void take(SimpleContainer after, Trade trade, int amount, List<Trade> catalogue) {
+        int remaining = amount;
+        for (int i = 0; i < SLOTS && remaining > 0; i++) {
+            ItemStack stack = after.getItem(i);
+            if (sellable(stack, catalogue) != trade) continue;
+            int taken = Math.min(remaining, stack.getCount());
+            after.setItem(i, stack.copyWithCount(stack.getCount() - taken));
+            remaining -= taken;
+        }
     }
 
     /** The first catalogue entry with a sell price for this exact item, or null. Coins are never sold. */

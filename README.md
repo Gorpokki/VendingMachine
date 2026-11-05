@@ -52,7 +52,7 @@ With Applied Energistics 2 installed, the machine joins an adjacent AE2 network 
 
 ## Shipping bin
 
-The shipping bin is a chest-sized block that buys items. Each item with a `sell_price` in the catalogue sells in whole lots of the entry's stack size, and the bin pays in coin items placed in the bin, never into a bank account. A sale happens whenever the bin's contents change. Items with no sell price, leftovers smaller than one lot, and coins stay in the bin. When the coins do not fit, nothing sells and every item stays.
+The shipping bin is a chest-sized block that buys items. Each item with a `sell_price` in the catalogue sells in whole lots of the entry's stack size, counted across every slot of the bin, and the bin pays in coin items placed in the bin, never into a bank account. A sale happens whenever the bin's contents change. Items with no sell price, leftovers smaller than one lot, and coins stay in the bin. When the coins do not fit, nothing sells and every item stays.
 
 ## Building
 

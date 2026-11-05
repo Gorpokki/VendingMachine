@@ -53,6 +53,18 @@ public class ShippingBinGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void lotsCountAcrossSlots(GameTestHelper h) {
+        ShippingBinBlockEntity bin = placeBin(h);
+        bin.setItem(0, new ItemStack(Items.BREAD, 2));
+        bin.setItem(1, new ItemStack(Items.BREAD, 2));
+        bin.setItem(2, new ItemStack(Items.BREAD, 2));
+        h.assertTrue(bin.sell(CATALOGUE), "6 bread across three slots make two lots of 3, so they should sell");
+        h.assertTrue(bin.countItem(Items.BREAD) == 0, "all 6 bread are two full lots and should leave the bin");
+        h.assertTrue(coinValue(bin) == 16, "two lots at 8 should pay 16 spurs in coins, paid " + coinValue(bin));
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void unpricedItemsStay(GameTestHelper h) {
         ShippingBinBlockEntity bin = placeBin(h);
         bin.setItem(0, new ItemStack(Items.STONE, 64));
