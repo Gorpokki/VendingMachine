@@ -1,0 +1,3 @@
+# Ruff's defaults plus unused-argument, commented-out code, noqa, loop, complexity, bugbear and membership checks.
+[lint]
+extend-select = ["ARG001", "ARG002", "ARG005", "ERA001", "PGH004", "RUF100", "PERF101", "PERF102", "PERF401", "PERF402", "PERF403", "PERF203", "C419", "RUF017", "C901", "B006", "B023", "PLR1714", "SIM118", "FURB171", "C420"]

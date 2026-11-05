@@ -6,21 +6,25 @@ The original 1.7.10 mod is on the `master` branch. This branch keeps its trade m
 
 ## Trades
 
-Each JSON file in `data/<namespace>/vendingmachine/trades/` is one trade. A data pack reload replaces the whole catalogue.
+Each JSON file in `data/<namespace>/vendingmachine/trades/` is a price table: an array of trades. A data pack reload replaces the whole catalogue, and screens open on the old catalogue close.
 
 ```json
-{
-  "price": 64,
-  "results": [{ "id": "minecraft:bread", "count": 3 }]
-}
+[
+  { "item": { "id": "minecraft:bread", "count": 3 }, "price": 64, "sell_price": 8, "category": "food" },
+  { "item": { "id": "minecraft:torch", "count": 16 }, "price": 32, "category": "tools" }
+]
 ```
 
+- `item`: the item stack the buyer gets (required).
 - `price`: cost in currency units (required, more than 0).
-- `results`: the item stacks the buyer gets (required, at least one).
+- `sell_price`: what a selling block may pay for the same stack (optional, more than 0). The machine itself does not buy items.
+- `category`: the category the screen filters by (required). The screen shows the `vendingmachine.category.<category>` translation, or the raw name when there is none.
 
-A purchase is all or nothing. With too little credit, or no room for every result in the machine's output slots, nothing is taken.
+Every trade is open to every player from the start, and can be bought again with no wait and no limit. The screen filters by category and by search text on the item name.
 
-Every price must be a multiple of the smallest coin's value. A trade whose price is not is logged and skipped.
+A purchase is all or nothing. With too little credit, or no room for the stack in the machine's output slots, nothing is taken.
+
+Every price and sell price must be a multiple of the smallest coin's value. A trade that breaks a rule is logged and skipped; the rest of its file still loads.
 
 ## Currency
 
