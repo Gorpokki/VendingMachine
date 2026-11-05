@@ -15,6 +15,7 @@ import com.cubefury.vendingmachine.util.Currency.Denomination;
 
 import appeng.api.AECapabilities;
 import appeng.api.config.Actionable;
+import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IInWorldGridNodeHost;
@@ -56,8 +57,13 @@ public final class MeStorageLink implements IInWorldGridNodeHost {
         GridHelper.onFirstTick(machine, m -> node.create(m.getLevel(), m.getBlockPos()));
     }
 
+    /**
+     * Makes {@code player} the node's owner. Resolves the AE2 player id from the UUID, as AE2's own
+     * {@code setOwningPlayer} does for a server player, so any server-side {@link Player} works.
+     */
     public void setOwner(Player player) {
-        node.setOwningPlayer(player);
+        IPlayerRegistry registry = IPlayerRegistry.getMapping(player.level());
+        if (registry != null) node.setOwningPlayerId(registry.getPlayerId(player.getUUID()));
     }
 
     public void destroy() {

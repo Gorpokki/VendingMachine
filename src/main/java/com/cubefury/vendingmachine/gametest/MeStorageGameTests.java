@@ -8,7 +8,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -85,7 +84,7 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void paysFromMeStorage(GameTestHelper h) {
-        ServerPlayer player = h.makeMockServerPlayerInLevel();
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
         VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
@@ -106,7 +105,7 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void meStorageCoversCreditShortfall(GameTestHelper h) {
-        ServerPlayer player = h.makeMockServerPlayerInLevel();
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
         VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
@@ -123,7 +122,7 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void refuseWhenMeStorageLacksCoins(GameTestHelper h) {
-        ServerPlayer player = h.makeMockServerPlayerInLevel();
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
         VendingMachineBlockEntity machine = buildNetwork(h, player);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
@@ -142,7 +141,7 @@ public class MeStorageGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 200)
     public static void refuseMeStorageForPlayerWhoDoesNotOwnNetwork(GameTestHelper h) {
-        ServerPlayer owner = h.makeMockServerPlayerInLevel();
+        Player owner = h.makeMockPlayer(GameType.SURVIVAL);
         VendingMachineBlockEntity machine = buildNetwork(h, owner);
         h.runAfterDelay(BOOT_TICKS, () -> {
             MEStorage storage = storage(h, machine);
