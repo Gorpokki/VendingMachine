@@ -205,8 +205,9 @@ public class VendingMachineGameTests {
         h.assertTrue(bread.item()
             .is(Items.BREAD)
             && bread.item()
-                .getCount() == 3
-            && bread.price() == 64
+                .getCount() == 3,
+            "bread fields should match the file");
+        h.assertTrue(bread.price() == 64
             && bread.sellPrice()
                 .equals(Optional.of(8))
             && bread.category()

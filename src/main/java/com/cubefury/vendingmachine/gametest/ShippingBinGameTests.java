@@ -77,6 +77,16 @@ public class ShippingBinGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void itemsShortOfALotStay(GameTestHelper h) {
+        ShippingBinBlockEntity bin = placeBin(h);
+        bin.setItem(0, new ItemStack(Items.BREAD, 2));
+        h.assertFalse(bin.sell(CATALOGUE), "2 bread are short of a lot of 3, so nothing should sell");
+        h.assertTrue(bin.countItem(Items.BREAD) == 2, "both bread should stay");
+        h.assertTrue(coinValue(bin) == 0, "no coins should appear");
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void fullBinKeepsItemsWhenCoinsDoNotFit(GameTestHelper h) {
         ShippingBinBlockEntity bin = placeBin(h);
         for (int i = 0; i < ShippingBinBlockEntity.SLOTS - 1; i++) {

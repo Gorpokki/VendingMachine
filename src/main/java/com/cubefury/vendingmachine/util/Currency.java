@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -76,21 +77,27 @@ public final class Currency {
             .getAsInt();
         Set<Item> items = new HashSet<>();
         for (Denomination d : denominations) {
-            if (!items.add(d.item())) {
-                VendingMachine.LOG.error(
-                    "Coin {} is listed more than once; accepting no currency",
-                    BuiltInRegistries.ITEM.getKey(d.item()));
-                return List.of();
-            }
-            if (d.value() % unit != 0) {
-                VendingMachine.LOG.error(
-                    "Coin worth {} is not a multiple of the smallest coin ({}); accepting no currency",
-                    d.value(),
-                    unit);
-                return List.of();
-            }
+            if (!accepted(d, unit, items)) return List.of();
         }
         return denominations;
+    }
+
+    /** Whether {@code d} is an item not yet in {@code items} and worth a multiple of {@code unit}. Logs why not. */
+    private static boolean accepted(Denomination d, int unit, Set<Item> items) {
+        if (!items.add(d.item())) {
+            VendingMachine.LOG.error(
+                "Coin {} is listed more than once; accepting no currency",
+                BuiltInRegistries.ITEM.getKey(d.item()));
+            return false;
+        }
+        if (d.value() % unit != 0) {
+            VendingMachine.LOG.error(
+                "Coin worth {} is not a multiple of the smallest coin ({}); accepting no currency",
+                d.value(),
+                unit);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -116,36 +123,13 @@ public final class Currency {
     /**
      * How many of each coin to take from a store that holds {@code available[i]} of {@code denominations().get(i)},
      * so the coins taken are worth at least {@code amount}. Largest coins first; when they cannot match exactly, one
-     * more coin covers the rest and the caller keeps the overpaid part as credit. Null when the store holds too little.
+     * more coin covers the rest and the caller keeps the overpaid part as credit. Empty when the store holds too little.
      */
-    public static long[] cover(long amount, long[] available) {
-        List<Denomination> d = denominations();
-        long[] take = new long[d.size()];
-        long rest = amount;
-        for (int i = 0; i < take.length; i++) {
-            take[i] = Math.min(available[i], rest / d.get(i)
-                .value());
-            rest -= take[i] * d.get(i)
-                .value();
-        }
-        for (int i = take.length - 1; rest > 0 && i >= 0; i--) {
-            if (d.get(i)
-                .value() >= rest && available[i] > take[i]) {
-                take[i]++;
-                rest -= d.get(i)
-                    .value();
-            }
-        }
-        if (rest > 0) return null;
-        for (int i = take.length - 1; i >= 0; i--) {
-            long value = d.get(i)
-                .value();
-            while (take[i] > 0 && value <= -rest) {
-                take[i]--;
-                rest += value;
-            }
-        }
-        return take;
+    public static Optional<long[]> cover(long amount, long[] available) {
+        int[] values = denominations().stream()
+            .mapToInt(Denomination::value)
+            .toArray();
+        return CoinMath.cover(values, available, amount);
     }
 
     public static long total(List<ItemStack> stacks) {
@@ -164,28 +148,29 @@ public final class Currency {
     }
 
     private static Table load() {
-        List<Denomination> list = new ArrayList<>();
         List<? extends String> configured = VMConfig.SPEC.isLoaded() ? VMConfig.CURRENCY.get() : List.of();
-        if (!configured.isEmpty()) {
-            for (String entry : configured) {
-                String[] parts = entry.split("=");
-                Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(parts[0].trim()));
-                if (item == Items.AIR) {
-                    VendingMachine.LOG.warn("Unknown currency item {}", parts[0]);
-                    continue;
-                }
-                list.add(new Denomination(item, Integer.parseInt(parts[1].trim())));
-            }
-        } else if (ModList.get()
-            .isLoaded("numismatics")) {
-                list.addAll(NumismaticsCurrency.denominations());
-            }
+        boolean numismatics = configured.isEmpty() && ModList.get()
+            .isLoaded("numismatics");
+        List<Denomination> list = new ArrayList<>(
+            numismatics ? NumismaticsCurrency.denominations() : parse(configured));
         list.sort(Comparator.comparingInt(Denomination::value)
             .reversed());
         List<Denomination> usable = usable(List.copyOf(list));
-        boolean inSpurs = configured.isEmpty() && !usable.isEmpty()
-            && ModList.get()
-                .isLoaded("numismatics");
-        return new Table(usable, inSpurs);
+        return new Table(usable, numismatics && !usable.isEmpty());
+    }
+
+    /** The configured {@code item=value} entries. Unknown items are skipped with a warning. */
+    private static List<Denomination> parse(List<? extends String> configured) {
+        List<Denomination> list = new ArrayList<>();
+        for (String entry : configured) {
+            String[] parts = entry.split("=");
+            Item item = BuiltInRegistries.ITEM.get(ResourceLocation.parse(parts[0].trim()));
+            if (item == Items.AIR) {
+                VendingMachine.LOG.warn("Unknown currency item {}", parts[0]);
+                continue;
+            }
+            list.add(new Denomination(item, Integer.parseInt(parts[1].trim())));
+        }
+        return list;
     }
 }

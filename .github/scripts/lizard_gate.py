@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail a pull request when a changed Java function is new or got worse and ends above CCN 15 or cognitive 15.
+"""Fail a pull request when a changed Java function is new or got worse and ends above CCN 5 or cognitive 5.
 
 CCN (cyclomatic complexity) counts the paths through a function. Cognitive complexity (lizard -Ecognitive)
 counts how hard a function is to read: nesting costs more. Old functions above a limit pass while the
@@ -13,7 +13,7 @@ import sys
 
 import lizard
 
-METRICS = (('CCN', 15), ('cognitive', 15))
+METRICS = (('CCN', 5), ('cognitive', 5))
 ANALYZER = lizard.FileAnalyzer(lizard.get_extensions(['cognitive']))
 
 
@@ -48,14 +48,12 @@ def findings(base, head='HEAD'):
 
 
 def ratchet(path, name, versions, old_versions):
-    """Report each metric where a function is new or worse and ends above its limit."""
-    bad = []
-    for index, (metric, limit) in enumerate(METRICS):
-        was = old_versions[0][0][index] if len(versions) == len(old_versions) == 1 else None
-        for scores, line in versions:
-            if scores[index] > max(limit, was or 0):
-                bad.append(f'{path}:{line}: {name} {metric} {"new" if was is None else was} -> {scores[index]} (max {limit})')
-    return bad
+    """Report each metric where a function is new or worse and ends above its limit. A new function's old score is 0."""
+    old = old_versions[0][0] if len(versions) == len(old_versions) == 1 else (0,) * len(METRICS)
+    return [f'{path}:{line}: {name} {metric} {was} -> {score} (max {limit})'
+            for scores, line in versions
+            for (metric, limit), score, was in zip(METRICS, scores, old)
+            if score > max(limit, was)]
 
 
 if __name__ == '__main__':

@@ -121,6 +121,24 @@ public class MeStorageGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 200)
+    public static void meStorageKeepsSmallCoinsTheOverpayingCoinCovers(GameTestHelper h) {
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineBlockEntity machine = buildNetwork(h, player);
+        h.runAfterDelay(BOOT_TICKS, () -> {
+            MEStorage storage = storage(h, machine);
+            store(storage, coin("spur"), 5);
+            store(storage, coin("cog"), 1);
+            Trade cake = new Trade(new ItemStack(Items.CAKE), 20, Optional.empty(), "food");
+            VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, List.of(cake));
+            h.assertTrue(buy(player, menu), "ME storage should pay");
+            h.assertTrue(stored(storage, coin("cog")) == 0, "the cog (64 spurs) should pay the price of 20");
+            h.assertTrue(stored(storage, coin("spur")) == 5, "the 5 spurs should go back, as the cog covers them");
+            h.assertTrue(machine.credit(player.getUUID()) == 44, "the overpaid 44 spurs should stay as credit");
+            h.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
     public static void refuseWhenMeStorageLacksCoins(GameTestHelper h) {
         Player player = h.makeMockPlayer(GameType.SURVIVAL);
         VendingMachineBlockEntity machine = buildNetwork(h, player);

@@ -56,6 +56,17 @@ public class ShippingBinBlockEntity extends BaseContainerBlockEntity {
             after.setItem(i, items.get(i)
                 .copy());
         }
+        long value = removeLots(after, catalogue);
+        if (value == 0 || !pay(after, value)) return false;
+        for (int i = 0; i < SLOTS; i++) {
+            items.set(i, after.getItem(i));
+        }
+        setChanged();
+        return true;
+    }
+
+    /** Removes every whole lot that sells from the planned contents and returns what the lots sell for. */
+    private long removeLots(SimpleContainer after, List<Trade> catalogue) {
         long value = 0;
         for (Map.Entry<Trade, Integer> sold : countByTrade(catalogue).entrySet()) {
             Trade trade = sold.getKey();
@@ -67,16 +78,17 @@ public class ShippingBinBlockEntity extends BaseContainerBlockEntity {
                 .get();
             take(after, trade, lots * lotSize, catalogue);
         }
+        return value;
+    }
+
+    /** Puts coins worth {@code value} in the planned contents. False when the coins cannot make it or do not fit. */
+    private static boolean pay(SimpleContainer after, long value) {
         List<ItemStack> coins = Currency.makeChange(value);
-        if (value == 0 || Currency.total(coins) != value) return false;
+        if (Currency.total(coins) != value) return false;
         for (ItemStack coin : coins) {
             if (!after.addItem(coin)
                 .isEmpty()) return false;
         }
-        for (int i = 0; i < SLOTS; i++) {
-            items.set(i, after.getItem(i));
-        }
-        setChanged();
         return true;
     }
 
@@ -105,11 +117,12 @@ public class ShippingBinBlockEntity extends BaseContainerBlockEntity {
     /** The first catalogue entry with a sell price for this exact item, or null. Coins are never sold. */
     private static Trade sellable(ItemStack stack, List<Trade> catalogue) {
         if (stack.isEmpty() || Currency.unitValue(stack) > 0) return null;
-        for (Trade trade : catalogue) {
-            if (trade.sellPrice()
-                .isPresent() && ItemStack.isSameItemSameComponents(stack, trade.item())) return trade;
-        }
-        return null;
+        return catalogue.stream()
+            .filter(
+                trade -> trade.sellPrice()
+                    .isPresent() && ItemStack.isSameItemSameComponents(stack, trade.item()))
+            .findFirst()
+            .orElse(null);
     }
 
     @Override
