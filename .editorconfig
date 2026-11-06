@@ -12,7 +12,7 @@ indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{bat,ini}]
+[*.{bat,cmd,ps1}]
 end_of_line = crlf
 
 [*.{dtd,json,info,mcmeta,md,sh,svg,xml,xsd,xsl,yaml,yml}]

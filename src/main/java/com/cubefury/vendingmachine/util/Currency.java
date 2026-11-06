@@ -28,6 +28,8 @@ public final class Currency {
 
     private record Table(List<Denomination> denominations, boolean inSpurs) {}
 
+    // The table is immutable; the volatile field publishes the one a config reload replaces.
+    @SuppressWarnings("java:S3077")
     private static volatile Table table;
 
     private Currency() {}
@@ -149,7 +151,7 @@ public final class Currency {
     }
 
     private static Table load() {
-        List<? extends String> configured = VMConfig.SPEC.isLoaded() ? VMConfig.CURRENCY.get() : List.of();
+        List<String> configured = VMConfig.SPEC.isLoaded() ? List.copyOf(VMConfig.CURRENCY.get()) : List.of();
         boolean numismatics = configured.isEmpty() && ModList.get()
             .isLoaded("numismatics");
         List<Denomination> list = new ArrayList<>(
@@ -161,7 +163,7 @@ public final class Currency {
     }
 
     /** The configured {@code item=value} entries. Unknown items are skipped with a warning. */
-    private static List<Denomination> parse(List<? extends String> configured) {
+    private static List<Denomination> parse(List<String> configured) {
         List<Denomination> list = new ArrayList<>();
         for (String entry : configured) {
             String[] parts = entry.split("=");

@@ -19,7 +19,9 @@ import com.cubefury.vendingmachine.VendingMachine;
 /** The machine and the bin craft from early vanilla items, through the server's own recipe manager. */
 @GameTestHolder(VendingMachine.MODID)
 @PrefixGameTestTemplate(false)
-public class RecipeGameTests {
+public final class RecipeGameTests {
+
+    private RecipeGameTests() {}
 
     private static ItemStack craft(GameTestHelper h, Item... grid) {
         List<ItemStack> items = Arrays.stream(grid)
@@ -40,7 +42,9 @@ public class RecipeGameTests {
     public static void vendingMachineCraftsFromCopperGlassAndChest(GameTestHelper h) {
         Item c = Items.COPPER_INGOT;
         ItemStack result = craft(h, c, Items.GLASS_PANE, c, c, Items.CHEST, c, c, c, c);
-        h.assertTrue(result.is(Registration.VENDING_MACHINE_ITEM.get()), "should craft a vending machine, got " + result);
+        h.assertTrue(
+            result.is(Registration.VENDING_MACHINE_ITEM.get()),
+            "should craft a vending machine, got " + result);
         h.succeed();
     }
 

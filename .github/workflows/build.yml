@@ -21,26 +21,16 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
-      - name: Build jar and run JUnit tests
+      - name: Build jar
         run: ./gradlew --no-daemon build
-      - name: Run GameTests with JaCoCo coverage
-        run: ./gradlew --no-daemon runGameTestServer jacocoGameTestReport
-      - name: Fail when GameTests run under 80% of changed Java lines
-        if: github.event_name == 'pull_request'
-        env:
-          BASE: ${{ format('origin/{0}', github.base_ref) }}
-        run: >-
-          pipx run --spec diff-cover==10.6.0 diff-cover build/reports/jacoco/jacocoGameTestReport/jacocoGameTestReport.xml
-          --compare-branch="$BASE" --src-roots src/main/java --fail-under=80
-      - name: Fail when PIT kills under 91% of coin arithmetic mutants
-        run: ./gradlew --no-daemon pitest
+      - name: Run GameTests
+        run: ./gradlew --no-daemon runGameTestServer
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: vendingmachine-jar
@@ -93,88 +83,9 @@ jobs:
           name: server-log
           path: server/server.log
 
-  # Blocks new problems only: changed lines, new or worse functions, and new workflow risks. zizmor also scans whole workflow files.
+  # Pushes check the whole repository. A pull request labelled upstream-sync checks only the lines it changes.
   quality:
-    name: Check changed code quality
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    container:
-      image: python:3.11.17-trixie@sha256:50cfccc707e8721201ee018bfd7f6a85d8eacf49c4f9f75833a2aba09a10411f
-    defaults:
-      run:
-        shell: bash
-    env:
-      BASE: ${{ format('origin/{0}', github.base_ref) }}
-      QLTY_TELEMETRY: 'off'
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Trust the workspace for git
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Install Qlty CLI 0.652.0, poutine 1.1.6, lizard 1.24.1 and zizmor 1.30.1
-        run: |
-          cd "$RUNNER_TEMP"
-          curl -fsSLo qlty.tar.xz https://github.com/qltysh/qlty/releases/download/v0.652.0/qlty-x86_64-unknown-linux-musl.tar.xz
-          curl -fsSLo poutine.tar.gz https://github.com/boostsecurityio/poutine/releases/download/v1.1.6/poutine_Linux_x86_64.tar.gz
-          echo '9d56dfaf60ca52281a7465c9b0a82389071d56a9d014703b4d9f8b8da1f55d50  qlty.tar.xz' | sha256sum -c
-          echo 'abde716599a65608b023a69ed9316e5f083a7bca48612151c2720835883757ea  poutine.tar.gz' | sha256sum -c
-          mkdir -p bin
-          tar -xJf qlty.tar.xz -C bin --strip-components=1
-          tar -xzf poutine.tar.gz -C bin poutine
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-          python3 -m pip install lizard==1.24.1 zizmor==1.30.1
-      # Plugin versions and configs: .qlty/qlty.toml and .qlty/configs/.
-      - name: Lint changed lines with every Qlty plugin in .qlty/qlty.toml
-        run: qlty check --upstream "$BASE" --no-formatters --no-progress --fail-level medium
-      - name: Fail Qlty code smells on changed lines
-        if: ${{ !cancelled() }}
-        run: qlty smells --upstream "$BASE" --sarif --quiet --no-snippets | python3 .github/scripts/smells_gate.py "$BASE"
-      - name: Test the gate scripts
-        if: ${{ !cancelled() }}
-        run: python3 -m unittest discover -s .github/scripts
-      - name: Lint every workflow file with actionlint
-        if: ${{ !cancelled() }}
-        run: qlty check --all --filter actionlint --no-formatters --no-progress --fail-level medium
-      - name: Scan whole workflow files with zizmor
-        if: ${{ !cancelled() }}
-        run: zizmor --no-progress .github/workflows
-      # Lizard 1.24.1 misreads some record declarations and then skips a file's functions.
-      # The PMD complexity rules in .qlty/configs/pmd.xml check the same limits on changed declarations.
-      - name: Fail new or worse Java functions above CCN 5 or cognitive complexity 5
-        if: ${{ !cancelled() }}
-        run: python3 .github/scripts/lizard_gate.py "$BASE"
-      - name: Check workflows for new supply-chain risks
-        if: ${{ !cancelled() }}
-        run: poutine analyze_local . --quiet --fail-on-violation
-
-  # Vale with the Deslop style checks every tracked Markdown file; any alert fails, including suggestions.
-  prose:
-    name: Check Markdown prose
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          persist-credentials: false
-      - name: Install Vale 3.24.0
-        run: |
-          cd "$RUNNER_TEMP"
-          curl -fsSLo vale.tar.gz https://github.com/errata-ai/vale/releases/download/v3.24.0/vale_3.24.0_Linux_64-bit.tar.gz
-          echo '867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214  vale.tar.gz' | sha256sum -c
-          tar -xzf vale.tar.gz vale
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-      - name: Download the Deslop style named in .vale.ini
-        run: vale sync
-      - name: Fail on any Vale alert in tracked Markdown
-        run: |
-          mapfile -d '' files < <(git ls-files -z '*.md')
-          rc=0
-          vale --output=line "${files[@]}" > "$RUNNER_TEMP/vale.txt" || rc=$?
-          cat "$RUNNER_TEMP/vale.txt"
-          # Vale exits 1 for an error-level alert and 2 when it cannot run.
-          [ "$rc" -le 1 ] || exit "$rc"
-          test ! -s "$RUNNER_TEMP/vale.txt"
+    # actionlint 1.7.12 rejects the self-repository form ($/...) that zizmor suggests.
+    uses: ./.github/workflows/quality.yml # zizmor: ignore[self-repository]
+    with:
+      changed-lines-only: ${{ contains(github.event.pull_request.labels.*.name, 'upstream-sync') }}

@@ -52,19 +52,35 @@ jacoco {
     toolVersion = '0.8.15'
 }
 
-// The GameTest server records which mod lines the GameTests run; jacocoGameTestReport writes them as XML.
-tasks.matching { it.name == 'runGameTestServer' }.configureEach {
-    jacoco.applyTo(it)
-    it.jacoco.includes = ["${mod_group_id}.*"]
-    // The agent's output file would otherwise let Gradle skip a rerun with unchanged inputs.
-    it.outputs.upToDateWhen { false }
+// With -Pcoverage, the GameTest server records which mod lines the GameTests run; jacocoGameTestReport writes them
+// as XML. The GameTests themselves and the client screen, which a server never loads, are left out of the report.
+if (providers.gradleProperty('coverage').present) {
+    tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+        jacoco.applyTo(it)
+        it.jacoco.includes = ["${mod_group_id}.*"]
+        // The agent's output file would otherwise let Gradle skip a rerun with unchanged inputs.
+        it.outputs.upToDateWhen { false }
+    }
+}
+
+def gameTestCoverage = { task ->
+    task.mustRunAfter 'runGameTestServer'
+    task.executionData file('build/jacoco/runGameTestServer.exec')
+    task.sourceDirectories.from sourceSets.main.java.srcDirs
+    task.classDirectories.from sourceSets.main.output.classesDirs.asFileTree.matching {
+        exclude '**/gametest/**', '**/client/**'
+    }
 }
 
 tasks.register('jacocoGameTestReport', JacocoReport) {
-    mustRunAfter 'runGameTestServer'
-    executionData file('build/jacoco/runGameTestServer.exec')
-    sourceSets sourceSets.main
+    gameTestCoverage(it)
     reports.xml.required = true
+}
+
+// Fails when the GameTests run under 80% of the mod's lines.
+tasks.register('jacocoGameTestCoverageVerification', JacocoCoverageVerification) {
+    gameTestCoverage(it)
+    violationRules.rule { limit { counter = 'LINE'; minimum = 0.80 } }
 }
 
 // Mutation testing covers the Minecraft-free code that JUnit can run without a server.

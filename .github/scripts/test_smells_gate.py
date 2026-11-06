@@ -6,6 +6,8 @@ DIFF = """diff --git a/A.java b/A.java
 --- a/A.java
 +++ b/A.java
 @@ -3,0 +4,2 @@ class A {
++++ an added line that looks like a file header
++int b;
 @@ -9 +11 @@ class A {
 @@ -20,2 +22,0 @@ class A {
 diff --git a/Gone.java b/Gone.java

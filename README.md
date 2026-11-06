@@ -17,7 +17,8 @@ the machine's output slots.
 
 A purchase is all or nothing. When you cannot pay, or the output slots have no
 room for the whole stack, nothing changes. **Return Coins** pays your credit
-back as coins. Breaking the machine drops all its credit as coins.
+back as coins. Breaking the machine drops all its credit as coins. Credit that
+the accepted coins cannot make stays unpaid, and the server log names it.
 
 The machine pays from these sources, first to last:
 

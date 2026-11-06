@@ -1,0 +1,158 @@
+name: Quality checks
+
+# Reusable quality checks for a NeoForge mod fork. By default every check fails on any finding in the whole
+# repository. An upstream-sync pull request brings in code we did not write, so a caller can set
+# changed-lines-only to gate only the lines that pull request changes.
+#
+# A caller job:
+#
+#   quality:
+#     uses: ./.github/workflows/quality.yml
+#     with:
+#       changed-lines-only: ${{ contains(github.event.pull_request.labels.*.name, 'upstream-sync') }}
+#
+# Add the label before the pull request's last push, or re-run the checks after labelling.
+# changed-lines-only needs a pull_request event: it compares against the pull request's base branch.
+#
+# The caller repository carries the configs these jobs read: .qlty/qlty.toml and .qlty/configs/ (Qlty plugins),
+# .vale.ini (prose), .github/scripts/ (gates), and the Gradle tasks jacocoGameTestReport,
+# jacocoGameTestCoverageVerification and pitest.
+
+on:
+  workflow_call:
+    inputs:
+      changed-lines-only:
+        description: Gate only the lines a pull request changes, for upstream syncs.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  BASE: ${{ format('origin/{0}', github.base_ref) }}
+  CHANGED_LINES_ONLY: ${{ inputs.changed-lines-only }}
+
+jobs:
+  code:
+    name: Check code quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: python:3.11.17-trixie@sha256:50cfccc707e8721201ee018bfd7f6a85d8eacf49c4f9f75833a2aba09a10411f
+    defaults:
+      run:
+        shell: bash
+    env:
+      QLTY_TELEMETRY: 'off'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Trust the workspace for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Install Qlty CLI 0.652.0, poutine 1.1.6, lizard 1.24.1 and zizmor 1.30.1
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo qlty.tar.xz https://github.com/qltysh/qlty/releases/download/v0.652.0/qlty-x86_64-unknown-linux-musl.tar.xz
+          curl -fsSLo poutine.tar.gz https://github.com/boostsecurityio/poutine/releases/download/v1.1.6/poutine_Linux_x86_64.tar.gz
+          echo '9d56dfaf60ca52281a7465c9b0a82389071d56a9d014703b4d9f8b8da1f55d50  qlty.tar.xz' | sha256sum -c
+          echo 'abde716599a65608b023a69ed9316e5f083a7bca48612151c2720835883757ea  poutine.tar.gz' | sha256sum -c
+          mkdir -p bin
+          tar -xJf qlty.tar.xz -C bin --strip-components=1
+          tar -xzf poutine.tar.gz -C bin poutine
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          python3 -m pip install lizard==1.24.1 zizmor==1.30.1
+      # Plugin versions, configs and reasoned ignores: .qlty/qlty.toml and .qlty/configs/.
+      - name: Lint with every Qlty plugin in .qlty/qlty.toml, failing on any finding
+        run: |
+          if [ "$CHANGED_LINES_ONLY" = true ]; then
+            qlty check --upstream "$BASE" --no-formatters --no-progress --fail-level low
+          else
+            qlty check --all --no-formatters --no-progress --fail-level low
+          fi
+      - name: Fail on Qlty code smells
+        if: ${{ !cancelled() }}
+        run: |
+          if [ "$CHANGED_LINES_ONLY" = true ]; then
+            qlty smells --upstream "$BASE" --sarif --quiet --no-snippets | python3 .github/scripts/smells_gate.py "$BASE"
+          else
+            qlty smells --all --sarif --quiet --no-snippets | python3 .github/scripts/smells_gate.py --all
+          fi
+      # Lizard 1.24.1 misreads some record declarations and then skips a file's functions.
+      # The PMD complexity rules in .qlty/configs/pmd.xml check the same limits.
+      - name: Fail Java functions above CCN 10 or cognitive complexity 15
+        if: ${{ !cancelled() }}
+        run: python3 .github/scripts/lizard_gate.py "$([ "$CHANGED_LINES_ONLY" = true ] && echo "$BASE" || echo --all)"
+      - name: Test the gate scripts
+        if: ${{ !cancelled() }}
+        run: python3 -m unittest discover -s .github/scripts
+      - name: Scan whole workflow files with zizmor
+        if: ${{ !cancelled() }}
+        run: zizmor --no-progress .github/workflows
+      - name: Check workflows for supply-chain risks
+        if: ${{ !cancelled() }}
+        run: poutine analyze_local . --quiet --fail-on-violation
+
+  java:
+    name: Check test coverage and mutation score
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+      - name: Run JUnit tests, and GameTests with JaCoCo coverage
+        run: ./gradlew --no-daemon build -Pcoverage runGameTestServer jacocoGameTestReport
+      - name: Fail when GameTests run under 80% of the lines
+        run: |
+          if [ "$CHANGED_LINES_ONLY" = true ]; then
+            pipx run --spec diff-cover==10.6.0 diff-cover build/reports/jacoco/jacocoGameTestReport/jacocoGameTestReport.xml \
+              --compare-branch="$BASE" --src-roots src/main/java --fail-under=80
+          else
+            ./gradlew --no-daemon jacocoGameTestCoverageVerification
+          fi
+      - name: Fail when PIT kills under 91% of coin arithmetic mutants
+        if: ${{ !cancelled() }}
+        run: ./gradlew --no-daemon pitest
+
+  prose:
+    name: Check Markdown prose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Vale 3.24.0
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLo vale.tar.gz https://github.com/errata-ai/vale/releases/download/v3.24.0/vale_3.24.0_Linux_64-bit.tar.gz
+          echo '867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214  vale.tar.gz' | sha256sum -c
+          tar -xzf vale.tar.gz vale
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Download the Deslop style named in .vale.ini
+        run: vale sync
+      # Vale with the Deslop style; any alert fails, including suggestions.
+      - name: Fail on any Vale alert in Markdown
+        run: |
+          if [ "$CHANGED_LINES_ONLY" = true ]; then
+            mapfile -d '' files < <(git diff -z --name-only --diff-filter=ACMR "$BASE"...HEAD -- '*.md')
+          else
+            mapfile -d '' files < <(git ls-files -z '*.md')
+          fi
+          [ "${#files[@]}" -gt 0 ] || exit 0
+          rc=0
+          vale --output=line "${files[@]}" > "$RUNNER_TEMP/vale.txt" || rc=$?
+          cat "$RUNNER_TEMP/vale.txt"
+          # Vale exits 1 for an error-level alert and 2 when it cannot run.
+          [ "$rc" -le 1 ] || exit "$rc"
+          test ! -s "$RUNNER_TEMP/vale.txt"

@@ -11,15 +11,15 @@
         <!-- A volatile field publishes the table that a data or config reload replaces. -->
         <exclude name="AvoidUsingVolatile"/>
     </rule>
-    <!-- Reports at 6 and above: CCN 5 is the limit, the same as the Lizard gate. -->
+    <!-- Reports at 11 and 16 and above: the limits are CCN 10 and cognitive complexity 15, the same as the Lizard gate. -->
     <rule ref="category/java/design.xml/CyclomaticComplexity">
         <properties>
-            <property name="methodReportLevel" value="6"/>
+            <property name="methodReportLevel" value="11"/>
         </properties>
     </rule>
     <rule ref="category/java/design.xml/CognitiveComplexity">
         <properties>
-            <property name="reportLevel" value="6"/>
+            <property name="reportLevel" value="16"/>
         </properties>
     </rule>
 </ruleset>

@@ -30,10 +30,12 @@ import dev.ithundxr.createnumismatics.content.bank.CardItem;
 /** Card payment, with Create: Numismatics loaded. Prices and balances are in spurs. */
 @GameTestHolder(VendingMachine.MODID)
 @PrefixGameTestTemplate(false)
-public class NumismaticsCardGameTests {
+public final class NumismaticsCardGameTests {
 
     private static final BlockPos MACHINE = new BlockPos(1, 1, 1);
     private static final Trade BREAD = new Trade(new ItemStack(Items.BREAD, 3), 64, Optional.empty(), "food");
+
+    private NumismaticsCardGameTests() {}
 
     private static ItemStack numismatics(String name) {
         return new ItemStack(BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("numismatics", name)));
@@ -56,7 +58,9 @@ public class NumismaticsCardGameTests {
             .getTrustList()
             .addAll(List.of(trusted));
         return AuthorizedCardItem
-            .set(numismatics("white_authorized_card"), new AuthorizedCardItem.AuthorizationPair(account.id, authorization));
+            .set(
+                numismatics("white_authorized_card"),
+                new AuthorizedCardItem.AuthorizationPair(account.id, authorization));
     }
 
     private record Setup(VendingMachineBlockEntity machine, Player player, VendingMachineMenu menu) {

@@ -71,3 +71,4 @@ version = "1.37.1"
 [[plugin]]
 name = "editorconfig-checker"
 version = "3.6.1"
+

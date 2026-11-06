@@ -34,13 +34,15 @@ import appeng.blockentity.storage.DriveBlockEntity;
  */
 @GameTestHolder(VendingMachine.MODID)
 @PrefixGameTestTemplate(false)
-public class MeStorageGameTests {
+public final class MeStorageGameTests {
 
     private static final BlockPos MACHINE = new BlockPos(0, 1, 1);
     private static final BlockPos DRIVE = new BlockPos(1, 1, 1);
     private static final BlockPos ENERGY = new BlockPos(2, 1, 1);
     private static final int BOOT_TICKS = 40;
     private static final Trade BREAD = new Trade(new ItemStack(Items.BREAD, 3), 64, Optional.empty(), "food");
+
+    private MeStorageGameTests() {}
 
     private static Item item(String namespace, String name) {
         return BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath(namespace, name));

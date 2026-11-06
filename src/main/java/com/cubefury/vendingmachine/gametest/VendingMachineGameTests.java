@@ -35,10 +35,12 @@ import com.mojang.serialization.JsonOps;
 /** Runs with Create and Create: Numismatics loaded, so the default currency is Numismatics coins. */
 @GameTestHolder(VendingMachine.MODID)
 @PrefixGameTestTemplate(false)
-public class VendingMachineGameTests {
+public final class VendingMachineGameTests {
 
     private static final BlockPos MACHINE = new BlockPos(1, 1, 1);
     private static final Trade BREAD = new Trade(new ItemStack(Items.BREAD, 3), 64, Optional.empty(), "food");
+
+    private VendingMachineGameTests() {}
 
     private static Item coin(String name) {
         return BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath("numismatics", name));
@@ -188,11 +190,12 @@ public class VendingMachineGameTests {
     public static void catalogueFileParses(GameTestHelper h) {
         var table = JsonParser.parseString("""
             [
-              {"item": {"id": "minecraft:bread", "count": 3}, "price": 64, "sell_price": 8, "category": "food"},
-              {"item": {"id": "minecraft:stone"}, "price": 1},
-              {"item": {"id": "minecraft:apple"}, "price": 2, "category": "food"}
+                {"item": {"id": "minecraft:bread", "count": 3}, "price": 64, "sell_price": 8, "category": "food"},
+                {"item": {"id": "minecraft:stone"}, "price": 1},
+                {"item": {"id": "minecraft:apple"}, "price": 2, "category": "food"}
             ]""");
-        var notATable = JsonParser.parseString("{\"item\": {\"id\": \"minecraft:dirt\"}, \"price\": 1, \"category\": \"x\"}");
+        var notATable = JsonParser
+            .parseString("{\"item\": {\"id\": \"minecraft:dirt\"}, \"price\": 1, \"category\": \"x\"}");
         List<Trade> trades = TradeDatabase.parse(
             Map.of(
                 ResourceLocation.fromNamespaceAndPath("test", "food"),
@@ -206,12 +209,11 @@ public class VendingMachineGameTests {
             .is(Items.BREAD)
             && bread.item()
                 .getCount() == 3,
-            "bread fields should match the file");
+            "bread item should match the file");
         h.assertTrue(bread.price() == 64
             && bread.sellPrice()
                 .equals(Optional.of(8))
-            && bread.category()
-                .equals("food"),
+            && "food".equals(bread.category()),
             "bread fields should match the file");
         Trade apple = trades.get(1);
         h.assertTrue(apple.item()
