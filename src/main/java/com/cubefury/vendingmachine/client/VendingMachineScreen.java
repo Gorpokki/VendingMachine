@@ -48,7 +48,13 @@ public class VendingMachineScreen extends AbstractContainerScreen<VendingMachine
     protected void init() {
         super.init();
         search = addRenderableWidget(
-            new EditBox(font, leftPos + LIST_X, topPos + 17, 98, 12, Component.translatable("vendingmachine.gui.search")));
+            new EditBox(
+                font,
+                leftPos + LIST_X,
+                topPos + 17,
+                98,
+                12,
+                Component.translatable("vendingmachine.gui.search")));
         search.setHint(Component.translatable("vendingmachine.gui.search"));
         search.setResponder(text -> refilter());
         categoryButton = addRenderableWidget(
@@ -103,22 +109,25 @@ public class VendingMachineScreen extends AbstractContainerScreen<VendingMachine
         for (Slot slot : menu.slots) {
             g.fill(leftPos + slot.x - 1, topPos + slot.y - 1, leftPos + slot.x + 17, topPos + slot.y + 17, 0xFF8B8B8B);
         }
+        int hovered = rowAt(mouseX, mouseY);
         for (int row = 0; row < ROWS && scroll + row < shown.size(); row++) {
             Trade trade = menu.trades()
                 .get(shown.get(scroll + row));
-            int x = leftPos + LIST_X;
-            int y = topPos + LIST_Y + row * ROW_HEIGHT;
-            boolean hover = mouseX >= x && mouseX < x + LIST_WIDTH && mouseY >= y && mouseY < y + ROW_HEIGHT;
-            boolean affordable = menu.credit() >= trade.price();
-            g.fill(x, y, x + LIST_WIDTH, y + ROW_HEIGHT - 1, hover ? 0xFF5A5A5A : 0xFF474747);
-            ItemStack item = trade.item();
-            g.renderItem(item, x + 2, y + 1);
-            g.renderItemDecorations(font, item, x + 2, y + 1);
-            g.drawString(font, item.getHoverName(), x + 22, y + 6, 0xFFFFFF, false);
-            String price = Integer.toString(trade.price());
-            g.drawString(font, price, x + LIST_WIDTH - 4 - font.width(price), y + 6,
-                affordable ? 0x80FF80 : 0xFF8080, false);
+            renderRow(g, trade, topPos + LIST_Y + row * ROW_HEIGHT, row == hovered);
         }
+    }
+
+    private void renderRow(GuiGraphics g, Trade trade, int y, boolean hover) {
+        int x = leftPos + LIST_X;
+        boolean affordable = menu.credit() >= trade.price();
+        g.fill(x, y, x + LIST_WIDTH, y + ROW_HEIGHT - 1, hover ? 0xFF5A5A5A : 0xFF474747);
+        ItemStack item = trade.item();
+        g.renderItem(item, x + 2, y + 1);
+        g.renderItemDecorations(font, item, x + 2, y + 1);
+        g.drawString(font, item.getHoverName(), x + 22, y + 6, 0xFFFFFF, false);
+        String price = Integer.toString(trade.price());
+        g.drawString(font, price, x + LIST_WIDTH - 4 - font.width(price), y + 6,
+            affordable ? 0x80FF80 : 0xFF8080, false);
     }
 
     @Override
@@ -157,16 +166,20 @@ public class VendingMachineScreen extends AbstractContainerScreen<VendingMachine
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         int max = Math.max(0, shown.size() - ROWS);
-        scroll = Math.clamp(scroll - (int) Math.signum(scrollY), 0, max);
+        scroll = Math.clamp(scroll - (long) Math.signum(scrollY), 0, max);
         return true;
     }
 
     private int rowAt(double mouseX, double mouseY) {
         double x = mouseX - leftPos - LIST_X;
         double y = mouseY - topPos - LIST_Y;
-        if (x < 0 || x >= LIST_WIDTH || y < 0 || y >= ROWS * ROW_HEIGHT) return -1;
+        if (!inside(x, LIST_WIDTH) || !inside(y, ROWS * ROW_HEIGHT)) return -1;
         int row = (int) (y / ROW_HEIGHT);
         return scroll + row < shown.size() ? row : -1;
+    }
+
+    private static boolean inside(double offset, int size) {
+        return offset >= 0 && offset < size;
     }
 
     private void pressButton(int id) {
