@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<ruleset name="VendingMachine" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>PMD quickstart rules plus complexity limits. Qlty blocks every finding in the repository, except on upstream-sync pull requests, which block only changed lines.</description>
+    <rule ref="rulesets/java/quickstart.xml">
+        <!-- The house style allows a single-statement if without braces. -->
+        <exclude name="ControlStatementBraces"/>
+        <!-- SLF4J placeholders already defer message building, so a level guard adds nothing. -->
+        <exclude name="GuardLogStatement"/>
+        <!-- A volatile field publishes the table that a data or config reload replaces. -->
+        <exclude name="AvoidUsingVolatile"/>
+    </rule>
+    <!-- Reports at 11 and 16 and above: the limits are CCN 10 and cognitive complexity 15, the same as the Lizard gate. -->
+    <rule ref="category/java/design.xml/CyclomaticComplexity">
+        <properties>
+            <property name="methodReportLevel" value="11"/>
+        </properties>
+    </rule>
+    <rule ref="category/java/design.xml/CognitiveComplexity">
+        <properties>
+            <property name="reportLevel" value="16"/>
+        </properties>
+    </rule>
+</ruleset>

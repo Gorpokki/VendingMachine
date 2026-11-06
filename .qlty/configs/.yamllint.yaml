@@ -1,0 +1,13 @@
+extends: default
+
+rules:
+  # GitHub workflow files start without a document marker.
+  document-start: disable
+  # GitHub's `on:` trigger key reads as a truthy value.
+  truthy:
+    check-keys: false
+  # Workflow run scripts and pinned action references do not wrap.
+  line-length: disable
+  # A pinned action SHA carries its version tag one space after it.
+  comments:
+    min-spaces-from-content: 1

@@ -20,14 +20,17 @@ import com.cubefury.vendingmachine.util.Currency;
 /** Selling to the shipping bin, with Create: Numismatics coins as the currency. Prices are in spurs. */
 @GameTestHolder(VendingMachine.MODID)
 @PrefixGameTestTemplate(false)
-public class ShippingBinGameTests {
+public final class ShippingBinGameTests {
 
     private static final BlockPos BIN = new BlockPos(1, 1, 1);
+    private static final String NO_COINS = "no coins should appear";
     /** Sells 3 bread for 8. */
     private static final Trade BREAD = new Trade(new ItemStack(Items.BREAD, 3), 64, Optional.of(8), "food");
     /** Buyable only: no sell price. */
     private static final Trade APPLE = new Trade(new ItemStack(Items.APPLE), 2, Optional.empty(), "food");
     private static final List<Trade> CATALOGUE = List.of(BREAD, APPLE);
+
+    private ShippingBinGameTests() {}
 
     private static ShippingBinBlockEntity placeBin(GameTestHelper h) {
         h.setBlock(BIN, Registration.SHIPPING_BIN.get());
@@ -72,7 +75,17 @@ public class ShippingBinGameTests {
         h.assertFalse(bin.sell(CATALOGUE), "nothing has a sell price, so nothing should sell");
         h.assertTrue(bin.countItem(Items.STONE) == 64, "stone with no catalogue entry should stay");
         h.assertTrue(bin.countItem(Items.APPLE) == 5, "apple with no sell price should stay");
-        h.assertTrue(coinValue(bin) == 0, "no coins should appear");
+        h.assertTrue(coinValue(bin) == 0, NO_COINS);
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void itemsShortOfALotStay(GameTestHelper h) {
+        ShippingBinBlockEntity bin = placeBin(h);
+        bin.setItem(0, new ItemStack(Items.BREAD, 2));
+        h.assertFalse(bin.sell(CATALOGUE), "2 bread are short of a lot of 3, so nothing should sell");
+        h.assertTrue(bin.countItem(Items.BREAD) == 2, "both bread should stay");
+        h.assertTrue(coinValue(bin) == 0, NO_COINS);
         h.succeed();
     }
 
@@ -85,7 +98,7 @@ public class ShippingBinGameTests {
         bin.setItem(ShippingBinBlockEntity.SLOTS - 1, new ItemStack(Items.BREAD, 4));
         h.assertFalse(bin.sell(CATALOGUE), "the coins have no room, so the sale should not happen");
         h.assertTrue(bin.countItem(Items.BREAD) == 4, "all 4 bread should stay");
-        h.assertTrue(coinValue(bin) == 0, "no coins should appear");
+        h.assertTrue(coinValue(bin) == 0, NO_COINS);
         h.succeed();
     }
 }

@@ -1,5 +1,10 @@
-# Pull-request quality job. See the quality job in .github/workflows/build.yml.
+# Quality job on pushes and pull requests to 1.21.1. It blocks every finding in the repository,
+# except on upstream-sync pull requests, which block only changed lines.
+# See the quality job in .github/workflows/build.yml.
 config_version = "0"
+
+# Third-party license texts are kept as published.
+exclude_patterns = ["LICENSE*"]
 
 [[source]]
 name = "default"
@@ -20,3 +25,52 @@ version = "1.30.1"
 
 [[plugin]]
 name = "shellcheck"
+version = "0.11.0"
+
+[[plugin]]
+name = "pmd"
+version = "7.28.0"
+
+# Qlty's PMD driver runs only the quickstart rules; this one reads .qlty/configs/pmd.xml.
+[plugins.definitions.pmd]
+config_files = ["pmd.xml"]
+
+[plugins.definitions.pmd.drivers.lint-java]
+script = "pmd check --rulesets ${config_file} --format sarif --dir ${target}"
+
+[[plugin]]
+name = "checkstyle"
+version = "13.9.0"
+
+[[plugin]]
+name = "radarlint-java"
+version = "2.0.0"
+
+[[plugin]]
+name = "gitleaks"
+version = "8.29.1"
+
+[[plugin]]
+name = "trufflehog"
+version = "3.97.4"
+
+[[plugin]]
+name = "checkov"
+version = "3.2.495"
+
+[[plugin]]
+name = "ripgrep"
+version = "14.1.1"
+
+[[plugin]]
+name = "markdownlint"
+version = "0.46.0"
+
+[[plugin]]
+name = "yamllint"
+version = "1.37.1"
+
+[[plugin]]
+name = "editorconfig-checker"
+version = "3.6.1"
+

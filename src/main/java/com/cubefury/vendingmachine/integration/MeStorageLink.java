@@ -94,12 +94,22 @@ public final class MeStorageLink implements IInWorldGridNodeHost {
         List<Denomination> coins = Currency.denominations();
         if (storage == null || coins.isEmpty() || !isOwner(player)) return 0;
         IActionSource source = IActionSource.ofPlayer(player);
+        return Currency.cover(amount, available(storage, coins, source))
+            .map(take -> extract(storage, coins, take, source))
+            .orElse(0L);
+    }
+
+    /** How many of each coin the storage holds, by a simulated extraction. */
+    private static long[] available(MEStorage storage, List<Denomination> coins, IActionSource source) {
         long[] available = new long[coins.size()];
         for (int i = 0; i < available.length; i++) {
             available[i] = storage.extract(key(coins, i), Long.MAX_VALUE, Actionable.SIMULATE, source);
         }
-        long[] take = Currency.cover(amount, available);
-        if (take == null) return 0;
+        return available;
+    }
+
+    /** Extracts {@code take[i]} of each coin and returns the value of the coins that came out. */
+    private static long extract(MEStorage storage, List<Denomination> coins, long[] take, IActionSource source) {
         long value = 0;
         for (int i = 0; i < take.length; i++) {
             if (take[i] == 0) continue;

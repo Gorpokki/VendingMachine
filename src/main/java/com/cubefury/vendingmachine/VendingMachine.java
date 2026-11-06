@@ -16,6 +16,8 @@ import com.cubefury.vendingmachine.integration.MeStorageLink;
 import com.cubefury.vendingmachine.trade.TradeDatabase;
 import com.cubefury.vendingmachine.util.Currency;
 
+// NeoForge constructs the mod class through its public constructor.
+@SuppressWarnings({ "PMD.InstantiableUtilityClass", "java:S1118" })
 @Mod(VendingMachine.MODID)
 public class VendingMachine {
 

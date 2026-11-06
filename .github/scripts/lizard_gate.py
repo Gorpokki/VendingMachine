@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""Fail a pull request when a changed Java function is new or got worse and ends above CCN 15 or cognitive 15.
+"""Fail when a Java function is above CCN 10 or cognitive complexity 15.
 
 CCN (cyclomatic complexity) counts the paths through a function. Cognitive complexity (lizard -Ecognitive)
-counts how hard a function is to read: nesting costs more. Old functions above a limit pass while the
-pull request does not make them worse. A reviewed exception is a `// #lizard forgive` comment inside the function.
-Function moves and renames count as new; split the function or add a reviewed `// #lizard forgive`.
+counts how hard a function is to read: nesting costs more. A reviewed exception is a `// #lizard forgive`
+comment inside the function.
 
-Usage: lizard_gate.py <base ref> [<head ref>]
+`--all` checks every tracked Java file. With a base ref, only changed functions count: a function fails when it
+is new or got worse and ends above a limit, so an upstream sync is gated on our own lines. Function moves and
+renames count as new.
+
+Usage: lizard_gate.py --all | lizard_gate.py <base ref> [<head ref>]
 """
 import subprocess
 import sys
 
 import lizard
 
-METRICS = (('CCN', 15), ('cognitive', 15))
+METRICS = (('CCN', 10), ('cognitive', 15))
 ANALYZER = lizard.FileAnalyzer(lizard.get_extensions(['cognitive']))
 
 
@@ -35,6 +38,15 @@ def complexity(rev, path):
     return functions
 
 
+def every_function():
+    """Every function in every tracked Java file that ends above a limit."""
+    bad = []
+    for path in git('ls-files', '*.java').splitlines():
+        for name, versions in complexity('HEAD', path).items():
+            bad += ratchet(path, name, versions, ())
+    return bad
+
+
 def findings(base, head='HEAD'):
     base = git('merge-base', base, head).strip()
     changes = git('diff', '--name-status', '--find-renames', '--diff-filter=AMR', base, head, '--', '*.java')
@@ -48,18 +60,16 @@ def findings(base, head='HEAD'):
 
 
 def ratchet(path, name, versions, old_versions):
-    """Report each metric where a function is new or worse and ends above its limit."""
-    bad = []
-    for index, (metric, limit) in enumerate(METRICS):
-        was = old_versions[0][0][index] if len(versions) == len(old_versions) == 1 else None
-        for scores, line in versions:
-            if scores[index] > max(limit, was or 0):
-                bad.append(f'{path}:{line}: {name} {metric} {"new" if was is None else was} -> {scores[index]} (max {limit})')
-    return bad
+    """Report each metric where a function is new or worse and ends above its limit. A new function's old score is 0."""
+    old = old_versions[0][0] if len(versions) == len(old_versions) == 1 else (0,) * len(METRICS)
+    return [f'{path}:{line}: {name} {metric} {was} -> {score} (max {limit})'
+            for scores, line in versions
+            for (metric, limit), score, was in zip(METRICS, scores, old)
+            if score > max(limit, was)]
 
 
 if __name__ == '__main__':
-    bad = findings(*sys.argv[1:])
+    bad = every_function() if sys.argv[1] == '--all' else findings(*sys.argv[1:])
     print('\n'.join(bad) or 'lizard gate: pass')
     if bad:
         print('Split the function, or add a reviewed `// #lizard forgive` comment inside it.')

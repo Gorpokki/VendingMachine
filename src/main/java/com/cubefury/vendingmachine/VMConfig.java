@@ -9,6 +9,8 @@ public final class VMConfig {
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
+    // NeoForge's config API types a string list as List<? extends String>.
+    @SuppressWarnings("java:S4968")
     public static final ModConfigSpec.ConfigValue<List<? extends String>> CURRENCY = BUILDER.comment(
         "Coin items the machine accepts, as \"<item id>=<value>\". Trade prices use the same unit.",
         "Leave empty to use Create: Numismatics coins with their own values (1 = one spur).")

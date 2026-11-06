@@ -1,68 +1,84 @@
-## Introduction
+# Vending Machine
 
-A NeoForge 1.21.1 port of the GTNH Vending Machine. A player places the machine, inserts coins, and buys trades from a catalogue that lives in data files.
+A vending machine and a shipping bin for NeoForge 1.21.1. Players buy items
+with coins from a catalogue in data files, and sell items to the bin for coins.
 
-The original 1.7.10 mod is on the `master` branch. This branch keeps its trade model (currency in, items out), its per-player wallet, and its screen layout. The GregTech multiblock, ModularUI2, NEI and BetterQuesting parts do not exist on 1.21.1, so the block, screen and quest parts are rewritten. Quest unlocks are not ported.
+## Build and test
 
-## Trades
+- `./gradlew build` builds the jar.
+- `./gradlew runGameTestServer` runs the GameTests with Create,
+  Create: Numismatics and Applied Energistics 2 loaded.
 
-Each JSON file in `data/<namespace>/vendingmachine/trades/` is a price table: an array of trades. A data pack reload replaces the whole catalogue, and screens open on the old catalogue close.
+## Vending machine
+
+Place the machine and open it. Put coins in the coin slot: each coin adds its
+value to your credit at that machine. Pick a trade and buy it. The item goes to
+the machine's output slots.
+
+A purchase is all or nothing. When you cannot pay, or the output slots have no
+room for the whole stack, nothing changes. **Return Coins** pays your credit
+back as coins. Breaking the machine drops all its credit as coins. Credit that
+the accepted coins cannot make stays unpaid, and the server log names it.
+
+The machine pays from these sources, first to last:
+
+- Card: a Numismatics bank card or authorized card in the card slot, when
+  prices are in Numismatics spurs and you may use the card's account.
+- Credit: your credit at the machine.
+- ME storage: coins in the ME storage of an adjacent, powered Applied
+  Energistics 2 network, when you placed the machine. The machine takes the
+  missing value, largest coins first. One extra coin covers a value that the
+  coins cannot match, and the surplus becomes credit.
+
+## Shipping bin
+
+The bin buys every item that has a `sell_price` in the catalogue, in whole
+lots of the trade's stack size, and puts the coins in the bin. It sells
+whenever its contents change. Coins, items with no sell price and leftovers
+smaller than one lot stay. When the coins do not fit, nothing sells.
+
+## Catalogue
+
+Each JSON file in `data/<namespace>/vendingmachine/trades/` holds an array of
+trades. A data pack reload replaces the catalogue and closes open screens.
 
 ```json
 [
-  { "item": { "id": "minecraft:bread", "count": 3 }, "price": 64, "sell_price": 8, "category": "food" },
-  { "item": { "id": "minecraft:torch", "count": 16 }, "price": 32, "category": "tools" }
+  {
+    "item": { "id": "minecraft:bread", "count": 3 },
+    "price": 64,
+    "sell_price": 8,
+    "category": "food"
+  }
 ]
 ```
 
-- `item`: the item stack the buyer gets (required).
-- `price`: cost in currency units (required, more than 0).
-- `sell_price`: what the shipping bin pays for the same stack (optional, more than 0). The machine itself does not buy items.
-- `category`: the category the screen filters by (required). The screen shows the `vendingmachine.category.<category>` translation, or the raw name when there is none.
+- `item`: the stack the buyer gets.
+- `price`: the cost in currency units, above 0.
+- `sell_price`: optional; what the shipping bin pays for the same stack.
+- `category`: the screen's category filter. The screen shows the
+  `vendingmachine.category.<category>` translation when one exists.
 
-Every trade is open to every player from the start, and can be bought again with no wait and no limit. The screen filters by category and by search text on the item name.
-
-A purchase is all or nothing. If payment is unavailable, or there is no room for the whole stack in the machine's output slots, nothing is taken.
-
-Every price and sell price must be a multiple of the smallest coin's value. A trade that breaks a rule is logged and skipped; the rest of its file still loads.
+Every price must be a multiple of the smallest coin's value. The log names
+each trade that breaks a rule, and the rest of its file still loads.
 
 ## Currency
 
-Inserted coins and any overpayment from ME storage become player credit. **Return Coins** gives credit back as coins, and breaking the machine drops all credit as coins.
-
-`config/vendingmachine-common.toml` sets the accepted coins:
+`config/vendingmachine-common.toml` lists the accepted coins and their values:
 
 ```toml
 currency = ["minecraft:emerald=1", "minecraft:emerald_block=9"]
 ```
 
-With an empty list (the default) and Create: Numismatics installed, the machine takes Numismatics coins at their Numismatics values, counted in spurs.
-
-Every coin's value must be a multiple of the smallest coin's value, and each item may appear only once. Otherwise the machine accepts no currency and logs an error.
-
-The currency is read once when the game or dedicated server launches; restart it after changing `currency`. Changing `currency` on a world that already holds stored credit can strand remainders the new coins cannot pay out; each one is logged when the machine pays out or breaks.
-
-## Cards
-
-The card slot takes a Numismatics bank card or authorized card whatever the currency. A card pays only while the currency is the Numismatics default. A bound card pays from its bank account when the player may use that account; an authorized card pays from the shared account it was made for when the player is trusted on it. The card pays first, as at a Numismatics Vendor. Credit from inserted coins pays only when there is no card or the card cannot pay. A refused purchase takes nothing from either. The card goes back to the player when the screen closes.
-
-## ME storage
-
-With Applied Energistics 2 installed, the machine joins an adjacent AE2 network like any network block. When there is no card, or the card cannot pay, and the player's credit is too low, the machine takes coin items worth the missing value from the network's ME storage. It checks with a simulated extract first and takes nothing unless the coins cover the whole shortfall. Coins are taken largest first; when they cannot match the shortfall exactly, one more coin covers it and the overpaid part stays as the player's credit. The network must be powered. Only the player who placed the machine may pay from its ME storage; other players pay with coins or a card.
-
-## Shipping bin
-
-The shipping bin is a chest-sized block that buys items. Each item with a `sell_price` in the catalogue sells in whole lots of the entry's stack size, counted across every slot of the bin, and the bin pays in coin items placed in the bin, never into a bank account. A sale happens whenever the bin's contents change. Items with no sell price, leftovers smaller than one lot, and coins stay in the bin. When the coins do not fit, nothing sells and every item stays.
+With an empty list (the default) and Create: Numismatics installed, the
+machine takes Numismatics coins at their own values in spurs. Each coin must be
+listed once, and each value must be a multiple of the smallest. Otherwise the
+machine accepts no coins and logs an error. Restart the game or server after a
+change.
 
 ## Crafting
 
-Both blocks craft early from vanilla items, so players can place them in their own bases.
+- Vending machine: 7 copper ingots, 1 glass pane and 1 chest.
+- Shipping bin: 2 wooden slabs, 5 planks and 1 chest.
 
-- Vending machine: 7 copper ingots, 1 glass pane and 1 chest (`CGC` / `CHC` / `CCC`).
-- Shipping bin: 2 wooden slabs, 5 planks and 1 chest (`S S` / `PHP` / `PPP`).
-
-A data pack can replace either recipe at `data/vendingmachine/recipe/vending_machine.json` or `shipping_bin.json`.
-
-## Building
-
-`./gradlew build` makes the jar. `./gradlew runGameTestServer` runs the GameTests with Create, Create: Numismatics and Applied Energistics 2 loaded.
+A data pack can replace either recipe in `data/vendingmachine/recipe/`.

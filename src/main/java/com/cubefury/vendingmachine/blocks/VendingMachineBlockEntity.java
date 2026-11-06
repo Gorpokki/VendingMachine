@@ -116,18 +116,22 @@ public class VendingMachineBlockEntity extends BlockEntity {
      */
     public boolean buy(Player player, Trade trade, ItemStack card) {
         if (!fitsInOutput(trade.item())) return false;
-        if (!payByCard(card, player, trade.price())) {
-            long have = credit(player.getUUID());
-            if (have < trade.price() && meStorageLink != null) {
-                // Coins taken from ME storage become credit first, so an overpaid coin stays refundable.
-                have += meStorageLink.take(player, trade.price() - have);
-                setCredit(player.getUUID(), have);
-            }
-            if (have < trade.price()) return false;
-            setCredit(player.getUUID(), have - trade.price());
-        }
+        if (!payByCard(card, player, trade.price()) && !payByCredit(player, trade.price())) return false;
         ItemHandlerHelper.insertItemStacked(output, trade.item()
             .copy(), false);
+        return true;
+    }
+
+    /** Pays {@code price} from the player's credit, topped up from ME storage when the credit falls short. */
+    private boolean payByCredit(Player player, int price) {
+        long have = credit(player.getUUID());
+        if (have < price && meStorageLink != null) {
+            // Coins taken from ME storage become credit first, so an overpaid coin stays refundable.
+            have += meStorageLink.take(player, price - have);
+            setCredit(player.getUUID(), have);
+        }
+        if (have < price) return false;
+        setCredit(player.getUUID(), have - price);
         return true;
     }
 
@@ -161,7 +165,8 @@ public class VendingMachineBlockEntity extends BlockEntity {
         List<ItemStack> coins = Currency.makeChange(amount);
         long unpaid = amount - Currency.total(coins);
         if (unpaid > 0) {
-            VendingMachine.LOG.warn("Player {} has {} credit that the currency cannot pay out as coins", player, unpaid);
+            VendingMachine.LOG
+                .warn("Player {} has {} credit that the currency cannot pay out as coins", player, unpaid);
         }
         return coins;
     }

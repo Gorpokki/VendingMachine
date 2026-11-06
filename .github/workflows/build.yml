@@ -2,9 +2,9 @@ name: Build and test
 
 on:
   push:
-    branches: [ '1.21.1' ]
+    branches: ['1.21.1']
   pull_request:
-    branches: [ '1.21.1' ]
+    branches: ['1.21.1']
   workflow_dispatch:
 
 permissions:
@@ -83,50 +83,9 @@ jobs:
           name: server-log
           path: server/server.log
 
-  # Blocks new problems only: changed lines, new or worse functions, and new workflow risks. zizmor also scans whole workflow files.
+  # Pushes check the whole repository. A pull request labelled upstream-sync checks only the lines it changes.
   quality:
-    name: Check changed code quality
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    container:
-      image: python:3.11.17-trixie@sha256:50cfccc707e8721201ee018bfd7f6a85d8eacf49c4f9f75833a2aba09a10411f
-    defaults:
-      run:
-        shell: bash
-    env:
-      BASE: ${{ format('origin/{0}', github.base_ref) }}
-      QLTY_TELEMETRY: 'off'
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Trust the workspace for git
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Install Qlty CLI 0.652.0, poutine 1.1.6, lizard 1.24.1 and zizmor 1.30.1
-        run: |
-          cd "$RUNNER_TEMP"
-          curl -fsSLo qlty.tar.xz https://github.com/qltysh/qlty/releases/download/v0.652.0/qlty-x86_64-unknown-linux-musl.tar.xz
-          curl -fsSLo poutine.tar.gz https://github.com/boostsecurityio/poutine/releases/download/v1.1.6/poutine_Linux_x86_64.tar.gz
-          echo '9d56dfaf60ca52281a7465c9b0a82389071d56a9d014703b4d9f8b8da1f55d50  qlty.tar.xz' | sha256sum -c
-          echo 'abde716599a65608b023a69ed9316e5f083a7bca48612151c2720835883757ea  poutine.tar.gz' | sha256sum -c
-          mkdir -p bin
-          tar -xJf qlty.tar.xz -C bin --strip-components=1
-          tar -xzf poutine.tar.gz -C bin poutine
-          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
-          python3 -m pip install lizard==1.24.1 zizmor==1.30.1
-      - name: Lint changed lines with ruff, actionlint, zizmor and shellcheck
-        run: qlty check --upstream "$BASE" --no-formatters --no-progress --fail-level medium
-      - name: Lint every workflow file with actionlint
-        if: ${{ !cancelled() }}
-        run: qlty check --all --filter actionlint --no-formatters --no-progress --fail-level medium
-      - name: Scan whole workflow files with zizmor
-        if: ${{ !cancelled() }}
-        run: zizmor --no-progress .github/workflows
-      - name: Fail new or worse Java functions above CCN 15 or cognitive complexity 15
-        if: ${{ !cancelled() }}
-        run: python3 .github/scripts/lizard_gate.py "$BASE"
-      - name: Check workflows for new supply-chain risks
-        if: ${{ !cancelled() }}
-        run: poutine analyze_local . --quiet --fail-on-violation
+    # actionlint 1.7.12 rejects the self-repository form ($/...) that zizmor suggests.
+    uses: ./.github/workflows/quality.yml # zizmor: ignore[self-repository]
+    with:
+      changed-lines-only: ${{ contains(github.event.pull_request.labels.*.name, 'upstream-sync') }}

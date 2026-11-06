@@ -34,13 +34,15 @@ import appeng.blockentity.storage.DriveBlockEntity;
  */
 @GameTestHolder(VendingMachine.MODID)
 @PrefixGameTestTemplate(false)
-public class MeStorageGameTests {
+public final class MeStorageGameTests {
 
     private static final BlockPos MACHINE = new BlockPos(0, 1, 1);
     private static final BlockPos DRIVE = new BlockPos(1, 1, 1);
     private static final BlockPos ENERGY = new BlockPos(2, 1, 1);
     private static final int BOOT_TICKS = 40;
     private static final Trade BREAD = new Trade(new ItemStack(Items.BREAD, 3), 64, Optional.empty(), "food");
+
+    private MeStorageGameTests() {}
 
     private static Item item(String namespace, String name) {
         return BuiltInRegistries.ITEM.get(ResourceLocation.fromNamespaceAndPath(namespace, name));
@@ -116,6 +118,24 @@ public class MeStorageGameTests {
             h.assertTrue(buy(player, menu), "credit and ME storage together should pay");
             h.assertTrue(stored(storage, coin("cog")) == 0, "the cog should cover the missing 4 spurs");
             h.assertTrue(machine.credit(player.getUUID()) == 60, "the overpaid 60 spurs should stay as credit");
+            h.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void meStorageKeepsSmallCoinsTheOverpayingCoinCovers(GameTestHelper h) {
+        Player player = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineBlockEntity machine = buildNetwork(h, player);
+        h.runAfterDelay(BOOT_TICKS, () -> {
+            MEStorage storage = storage(h, machine);
+            store(storage, coin("spur"), 5);
+            store(storage, coin("cog"), 1);
+            Trade cake = new Trade(new ItemStack(Items.CAKE), 20, Optional.empty(), "food");
+            VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, List.of(cake));
+            h.assertTrue(buy(player, menu), "ME storage should pay");
+            h.assertTrue(stored(storage, coin("cog")) == 0, "the cog (64 spurs) should pay the price of 20");
+            h.assertTrue(stored(storage, coin("spur")) == 5, "the 5 spurs should go back, as the cog covers them");
+            h.assertTrue(machine.credit(player.getUUID()) == 44, "the overpaid 44 spurs should stay as credit");
             h.succeed();
         });
     }

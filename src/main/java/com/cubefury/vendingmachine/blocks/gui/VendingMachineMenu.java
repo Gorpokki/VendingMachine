@@ -36,7 +36,8 @@ public class VendingMachineMenu extends AbstractContainerMenu {
     public static final int BUTTON_FIRST_TRADE = 1;
     public static final int COIN_SLOT = 0;
     public static final int CARD_SLOT = 1;
-    private static final TagKey<Item> CARDS = ItemTags.create(ResourceLocation.fromNamespaceAndPath("numismatics", "cards"));
+    private static final TagKey<Item> CARDS = ItemTags
+        .create(ResourceLocation.fromNamespaceAndPath("numismatics", "cards"));
     private static final TagKey<Item> AUTHORIZED_CARDS = ItemTags
         .create(ResourceLocation.fromNamespaceAndPath("numismatics", "authorized_cards"));
 
@@ -71,8 +72,16 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         this.player = inv.player;
         this.machine = machine;
         this.trades = trades;
-        this.access = machine == null ? ContainerLevelAccess.NULL : ContainerLevelAccess.create(machine.getLevel(), pos);
+        this.access = machine == null ? ContainerLevelAccess.NULL
+            : ContainerLevelAccess.create(machine.getLevel(), pos);
+        addCoinAndCardSlots();
+        addOutputSlots(machine == null ? new ItemStackHandler(VendingMachineBlockEntity.OUTPUT_SLOTS) : machine.output);
+        addPlayerSlots(inv);
+        creditLow = addDataSlot(machine == null ? DataSlot.standalone() : new CreditSlot(0));
+        creditHigh = addDataSlot(machine == null ? DataSlot.standalone() : new CreditSlot(16));
+    }
 
+    private void addCoinAndCardSlots() {
         addSlot(new Slot(coinInput, 0, 8, 114) {
 
             @Override
@@ -92,8 +101,10 @@ public class VendingMachineMenu extends AbstractContainerMenu {
                 return 1;
             }
         });
-        ItemStackHandler output = machine == null ? new ItemStackHandler(VendingMachineBlockEntity.OUTPUT_SLOTS)
-            : machine.output;
+    }
+
+    /** The machine's output slots; a client menu shows empty stand-ins that the server fills through sync. */
+    private void addOutputSlots(ItemStackHandler output) {
         for (int i = 0; i < output.getSlots(); i++) {
             addSlot(new SlotItemHandler(output, i, 30 + i * 18, 114) {
 
@@ -108,6 +119,9 @@ public class VendingMachineMenu extends AbstractContainerMenu {
                 }
             });
         }
+    }
+
+    private void addPlayerSlots(Inventory inv) {
         for (int row = 0; row < 3; row++) {
             for (int col = 0; col < 9; col++) {
                 addSlot(new Slot(inv, col + row * 9 + 9, 8 + col * 18, 140 + row * 18));
@@ -116,9 +130,6 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         for (int col = 0; col < 9; col++) {
             addSlot(new Slot(inv, col, 8 + col * 18, 198));
         }
-
-        creditLow = addDataSlot(machine == null ? DataSlot.standalone() : new CreditSlot(0));
-        creditHigh = addDataSlot(machine == null ? DataSlot.standalone() : new CreditSlot(16));
     }
 
     public List<Trade> trades() {
@@ -160,19 +171,18 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         if (!slot.hasItem()) return ItemStack.EMPTY;
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
-        int playerStart = 2 + VendingMachineBlockEntity.OUTPUT_SLOTS;
-        if (index < playerStart) {
-            if (!moveItemStackTo(stack, playerStart, slots.size(), true)) return ItemStack.EMPTY;
-        } else if (Currency.unitValue(stack) > 0) {
-            if (!moveItemStackTo(stack, COIN_SLOT, COIN_SLOT + 1, false)) return ItemStack.EMPTY;
-        } else if (isCard(stack)) {
-            if (!moveItemStackTo(stack, CARD_SLOT, CARD_SLOT + 1, false)) return ItemStack.EMPTY;
-        } else {
-            return ItemStack.EMPTY;
-        }
+        if (!move(stack, index)) return ItemStack.EMPTY;
         if (stack.isEmpty()) slot.setByPlayer(ItemStack.EMPTY);
         else slot.setChanged();
         return original;
+    }
+
+    /** Moves a machine slot's stack to the player, or a player's coin or card to its slot. Returns whether any did. */
+    private boolean move(ItemStack stack, int index) {
+        int playerStart = 2 + VendingMachineBlockEntity.OUTPUT_SLOTS;
+        if (index < playerStart) return moveItemStackTo(stack, playerStart, slots.size(), true);
+        if (Currency.unitValue(stack) > 0) return moveItemStackTo(stack, COIN_SLOT, COIN_SLOT + 1, false);
+        return isCard(stack) && moveItemStackTo(stack, CARD_SLOT, CARD_SLOT + 1, false);
     }
 
     /** Closes the menu when a reload replaced the catalogue it was opened with. */
@@ -208,6 +218,8 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         }
 
         @Override
-        public void set(int value) {}
+        public void set(int value) {
+            // Credit lives in the machine; the server reads it through get() and never takes a value from here.
+        }
     }
 }

@@ -26,6 +26,9 @@ import com.cubefury.vendingmachine.blocks.gui.VendingMachineMenu;
 
 public final class Registration {
 
+    /** The registry path of the machine's block, item, block entity and menu. */
+    private static final String MACHINE_ID = "vending_machine";
+
     private static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(VendingMachine.MODID);
     private static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(VendingMachine.MODID);
     private static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister
@@ -34,7 +37,7 @@ public final class Registration {
         .create(Registries.MENU, VendingMachine.MODID);
 
     public static final DeferredBlock<VendingMachineBlock> VENDING_MACHINE = BLOCKS.register(
-        "vending_machine",
+        MACHINE_ID,
         () -> new VendingMachineBlock(
             BlockBehaviour.Properties.of()
                 .mapColor(MapColor.METAL)
@@ -47,12 +50,12 @@ public final class Registration {
 
     public static final Supplier<BlockEntityType<VendingMachineBlockEntity>> VENDING_MACHINE_BE = BLOCK_ENTITIES
         .register(
-            "vending_machine",
+            MACHINE_ID,
             () -> BlockEntityType.Builder.of(VendingMachineBlockEntity::new, VENDING_MACHINE.get())
                 .build(null));
 
     public static final Supplier<MenuType<VendingMachineMenu>> VENDING_MACHINE_MENU = MENUS
-        .register("vending_machine", () -> IMenuTypeExtension.create(VendingMachineMenu::new));
+        .register(MACHINE_ID, () -> IMenuTypeExtension.create(VendingMachineMenu::new));
 
     public static final DeferredBlock<ShippingBinBlock> SHIPPING_BIN = BLOCKS.register(
         "shipping_bin",
