@@ -1,6 +1,8 @@
 plugins {
     id 'java-library'
+    id 'jacoco'
     id 'net.neoforged.moddev' version '2.0.148'
+    id 'info.solidsoft.pitest' version '1.19.0'
 }
 
 version = mod_version
@@ -13,6 +15,7 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 repositories {
+    mavenCentral()
     exclusiveContent {
         forRepository { maven { url = 'https://api.modrinth.com/maven' } }
         filter { includeGroup 'maven.modrinth' }
@@ -36,6 +39,42 @@ dependencies {
     compileOnly "maven.modrinth:ae2:${ae2_version_id}"
     runMods "maven.modrinth:ae2:${ae2_version_id}"
     runMods "maven.modrinth:guideme:${guideme_version_id}"
+    testImplementation platform('org.junit:junit-bom:5.14.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+jacoco {
+    toolVersion = '0.8.15'
+}
+
+// The GameTest server records which mod lines the GameTests run; jacocoGameTestReport writes them as XML.
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    jacoco.applyTo(it)
+    it.jacoco.includes = ["${mod_group_id}.*"]
+    // The agent's output file would otherwise let Gradle skip a rerun with unchanged inputs.
+    it.outputs.upToDateWhen { false }
+}
+
+tasks.register('jacocoGameTestReport', JacocoReport) {
+    mustRunAfter 'runGameTestServer'
+    executionData file('build/jacoco/runGameTestServer.exec')
+    sourceSets sourceSets.main
+    reports.xml.required = true
+}
+
+// Mutation testing covers the Minecraft-free code that JUnit can run without a server.
+pitest {
+    pitestVersion = '1.30.1'
+    junit5PluginVersion = '1.2.3'
+    targetClasses = ["${mod_group_id}.util.CoinMath*"]
+    // 30 of 33 mutants die. The 3 survivors are equivalent: no input tells them apart from the real code.
+    mutationThreshold = 91
+    timestampedReports = false
 }
 
 def copyRunMods = tasks.register('copyRunMods', Sync) {
