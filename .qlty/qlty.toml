@@ -1,4 +1,4 @@
-# Quality job on pushes and pull requests to 1.21.1. It blocks every finding in the repository,
+# Quality job on pull requests to 1.21.1. It blocks every finding in the repository,
 # except on upstream-sync pull requests, which block only changed lines.
 # See the quality job in .github/workflows/build.yml.
 config_version = "0"
