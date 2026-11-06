@@ -14,8 +14,8 @@ class RatchetTest(unittest.TestCase):
         self.assertEqual(ratchet('A.java', 'A::f', [((8, 6), 4)], old), ['A.java:4: A::f CCN 7 -> 8 (max 5)'])
 
     def test_overloads_count_as_new(self):
-        self.assertEqual(ratchet('A.java', 'A::f', [((6, 0), 1), ((1, 0), 9)], [((6, 0), 1)]),
-                         ['A.java:1: A::f CCN 0 -> 6 (max 5)'])
+        overloads = ratchet('A.java', 'A::f', [((6, 0), 1), ((1, 0), 9)], [((6, 0), 1)])
+        self.assertEqual(overloads, ['A.java:1: A::f CCN 0 -> 6 (max 5)'])
 
 
 if __name__ == '__main__':

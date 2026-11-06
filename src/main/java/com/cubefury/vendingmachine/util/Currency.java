@@ -123,7 +123,8 @@ public final class Currency {
     /**
      * How many of each coin to take from a store that holds {@code available[i]} of {@code denominations().get(i)},
      * so the coins taken are worth at least {@code amount}. Largest coins first; when they cannot match exactly, one
-     * more coin covers the rest and the caller keeps the overpaid part as credit. Empty when the store holds too little.
+     * more coin covers the rest and the caller keeps the overpaid part as credit. Empty when the store holds too
+     * little.
      */
     public static Optional<long[]> cover(long amount, long[] available) {
         int[] values = denominations().stream()

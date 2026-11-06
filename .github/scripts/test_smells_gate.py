@@ -28,8 +28,8 @@ class SmellsGateTest(unittest.TestCase):
 
     def test_reports_a_smell_overlapping_a_changed_line(self):
         sarif = {'runs': [{'results': [smell('A.java', 10, 12), smell('A.java', 6, 9), smell('B.java', 4, 4)]}]}
-        self.assertEqual(new_smells(sarif, {'A.java': {4, 5, 11}}),
-                         ['A.java:10: qlty:nested-control-flow: Deeply nested control flow'])
+        found = new_smells(sarif, {'A.java': {4, 5, 11}})
+        self.assertEqual(found, ['A.java:10: qlty:nested-control-flow: Deeply nested control flow'])
 
 
 if __name__ == '__main__':

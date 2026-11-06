@@ -43,8 +43,8 @@ def new_smells(sarif, changed):
 
 
 if __name__ == '__main__':
-    diff = subprocess.run(['git', 'diff', '-U0', '--no-color', f'{sys.argv[1]}...HEAD'],
-                          capture_output=True, text=True, check=True).stdout
+    diff_command = ['git', 'diff', '-U0', '--no-color', f'{sys.argv[1]}...HEAD']
+    diff = subprocess.run(diff_command, capture_output=True, text=True, check=True).stdout
     found = new_smells(json.load(sys.stdin), changed_lines(diff))
     print('\n'.join(found) or 'smells gate: pass')
     sys.exit(1 if found else 0)
