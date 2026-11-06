@@ -83,8 +83,10 @@ jobs:
           name: server-log
           path: server/server.log
 
-  # Pushes check the whole repository. A pull request labelled upstream-sync checks only the lines it changes.
+  # Only pull requests run these checks, on the whole repository. A pull request labelled upstream-sync checks only
+  # the lines it changes.
   quality:
+    if: github.event_name == 'pull_request'
     # actionlint 1.7.12 rejects the self-repository form ($/...) that zizmor suggests.
     uses: ./.github/workflows/quality.yml # zizmor: ignore[self-repository]
     with:
