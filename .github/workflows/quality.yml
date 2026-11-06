@@ -1,8 +1,17 @@
 name: Quality checks
 
-# Reusable quality checks for a NeoForge mod fork. By default every check fails on any finding in the whole
-# repository. An upstream-sync pull request brings in code we did not write, so a caller can set
-# changed-lines-only to gate only the lines that pull request changes.
+# Reusable quality checks for a NeoForge mod fork. This workflow and its limits are the policy for every fork
+# that adopts it. By default every check fails on any finding in the whole repository.
+#
+# An upstream-sync pull request brings in code we did not write, so a caller can set changed-lines-only to gate
+# only the lines that pull request changes. After the sync merges, the first whole-repository run on 1.21.1 lists
+# the findings the sync brought in. A maintainer files one fix issue per finding group from that run. Every other
+# pull request and every push runs in whole-repository mode, so those findings fail every later pull request
+# until they are fixed.
+#
+# Limits: CCN 10 and cognitive complexity 15 on every function, checked by Lizard and by PMD as the backup.
+# Coverage: 80% of lines, of the whole repository or of the changed lines. Mutation score: each fork sets its
+# own floor as mutationThreshold in its Gradle pitest block.
 #
 # A caller job:
 #
@@ -119,7 +128,7 @@ jobs:
           else
             ./gradlew --no-daemon jacocoGameTestCoverageVerification
           fi
-      - name: Fail when PIT kills under 91% of coin arithmetic mutants
+      - name: Fail when PIT kills under the fork's mutation floor
         if: ${{ !cancelled() }}
         run: ./gradlew --no-daemon pitest
 
