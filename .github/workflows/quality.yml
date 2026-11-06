@@ -4,10 +4,10 @@ name: Quality checks
 # that adopts it. By default every check fails on any finding in the whole repository.
 #
 # An upstream-sync pull request brings in code we did not write, so a caller can set changed-lines-only to gate
-# only the lines that pull request changes. After the sync merges, the first whole-repository run on 1.21.1 lists
-# the findings the sync brought in. A maintainer files one fix issue per finding group from that run. Every other
-# pull request and every push runs in whole-repository mode, so those findings fail every later pull request
-# until they are fixed.
+# only the lines that pull request changes. After the sync merges, the next ordinary pull request runs in
+# whole-repository mode and lists the findings the sync brought in. A maintainer files one fix issue per finding
+# group from that run. Every other pull request runs in whole-repository mode, so those findings fail every later
+# pull request until they are fixed.
 #
 # Limits: CCN 10 and cognitive complexity 15 on every function, checked by Lizard and by PMD as the backup.
 # Coverage: 80% of lines, of the whole repository or of the changed lines. Mutation score: each fork sets its
