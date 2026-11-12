@@ -187,9 +187,10 @@ player must be online. Removed coins are gone, not dropped.
 
 ## Crafting
 
-- Vending machine: 7 copper ingots, 1 glass pane and 1 chest.
-- Vending machine casing: 5 iron ingots and 4 copper ingots make 5 casings,
-  enough for one machine.
+- Vending machine: 2 stone buttons, 3 iron ingots, 1 vending machine
+  casing and 1 hopper.
+- Vending machine casing: 4 iron ingots, 4 iron nuggets and 1 copper
+  ingot make 1 casing.
 - Shipping bin: 2 wooden slabs, 5 planks and 1 chest.
 
 A data pack can replace any of these recipes in `data/vendingmachine/recipe/`.

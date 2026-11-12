@@ -1,21 +1,11 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "pattern": [
-    "ICI",
-    "CIC",
-    "ICI"
-  ],
+  "pattern": ["INI", "NCN", "INI"],
   "key": {
-    "I": {
-      "item": "minecraft:iron_ingot"
-    },
-    "C": {
-      "item": "minecraft:copper_ingot"
-    }
+    "I": { "item": "minecraft:iron_ingot" },
+    "N": { "item": "minecraft:iron_nugget" },
+    "C": { "item": "minecraft:copper_ingot" }
   },
-  "result": {
-    "id": "vendingmachine:vending_machine_casing",
-    "count": 5
-  }
+  "result": { "id": "vendingmachine:vending_machine_casing", "count": 1 }
 }
