@@ -21,7 +21,8 @@ final class TradePage {
 
     static final int SLOT = 18;
     private static final int COLUMNS = 4;
-    // ponytail: two rows fit eight coin types; Numismatics has six. Grow ROWS if a currency config lists more.
+    // ponytail: the arrow and outputs centre on two input rows; inputs past eight wrap below them. Centre on each
+    // trade's own input rows if long input lists look lopsided.
     private static final int ROWS = 2;
     static final int ARROW_X = COLUMNS * SLOT + 4;
     static final int ARROW_Y = (ROWS * SLOT - 17) / 2;
