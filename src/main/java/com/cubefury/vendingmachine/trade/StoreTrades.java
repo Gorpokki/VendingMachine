@@ -3,6 +3,7 @@ package com.cubefury.vendingmachine.trade;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -17,14 +18,19 @@ import com.cubefury.vendingmachine.util.Currency;
 import com.cubefury.vendingmachine.util.Currency.Denomination;
 
 /**
- * The store trades a recipe viewer lists, as the original's NEI page did: each trade's price in coins and its items.
+ * The store trades a recipe viewer lists, as the original's NEI page did: each trade's price in coins and items, the
+ * items it asks to see but does not take, and the items it gives.
  * The server sends the catalogue to each client whenever it syncs data packs, on login and after {@code /reload},
  * just before the recipes that make JEI and EMI reload.
  */
 public final class StoreTrades {
 
-    /** One page entry: the coins that pay the price, largest first, and every stack bought. */
-    public record Entry(List<ItemStack> price, List<ItemStack> outputs) {}
+    /**
+     * One page entry: the coins that pay the price, largest first; the items the trade takes, then those it only asks
+     * to see, each as the stacks that pay it; and every stack bought.
+     */
+    public record Entry(List<ItemStack> price, List<List<ItemStack>> items, List<List<ItemStack>> kept,
+        List<ItemStack> outputs) {}
 
     /** The catalogue and the coins that pay it, as the server has them. */
     public record Sync(List<Trade> trades, List<Denomination> coins) implements CustomPacketPayload {
@@ -77,10 +83,29 @@ public final class StoreTrades {
             .map(
                 trade -> new Entry(
                     price(trade.price(), coins),
+                    choices(trade.fromItems()),
+                    choices(trade.nonConsumedItems()),
                     trade.items()
                         .stream()
                         .map(ItemStack::copy)
                         .toList()))
+            .toList();
+    }
+
+    /** Each cost as the stacks that pay it: its item, then the other items of its tag, each in the cost's count. */
+    private static List<List<ItemStack>> choices(List<ItemCost> costs) {
+        return costs.stream()
+            .map(cost -> {
+                List<ItemStack> stacks = new ArrayList<>();
+                stacks.add(new ItemStack(cost.item(), cost.count()));
+                cost.tag()
+                    .ifPresent(
+                        tag -> BuiltInRegistries.ITEM.getTagOrEmpty(tag)
+                            .forEach(item -> {
+                                if (item.value() != cost.item().value()) stacks.add(new ItemStack(item, cost.count()));
+                            }));
+                return List.copyOf(stacks);
+            })
             .toList();
     }
 
