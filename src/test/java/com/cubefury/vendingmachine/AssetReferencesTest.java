@@ -34,17 +34,19 @@ class AssetReferencesTest {
             json.getAsJsonArray().forEach(child -> collect(child, models, textures));
         } else if (json.isJsonObject()) {
             for (Map.Entry<String, JsonElement> entry : json.getAsJsonObject().entrySet()) {
-                String key = entry.getKey();
-                JsonElement value = entry.getValue();
-                if (value.isJsonPrimitive() && (key.equals("model") || key.equals("parent"))) {
-                    models.add(value.getAsString());
-                } else if (value.isJsonPrimitive() && key.equals("texture")) {
-                    textures.add(value.getAsString());
-                } else if (key.equals("textures") && value.isJsonObject()) {
-                    value.getAsJsonObject().entrySet().forEach(t -> textures.add(t.getValue().getAsString()));
-                }
-                collect(value, models, textures);
+                collectEntry(entry.getKey(), entry.getValue(), models, textures);
+                collect(entry.getValue(), models, textures);
             }
+        }
+    }
+
+    private static void collectEntry(String key, JsonElement value, List<String> models, List<String> textures) {
+        if (value.isJsonPrimitive() && ("model".equals(key) || "parent".equals(key))) {
+            models.add(value.getAsString());
+        } else if (value.isJsonPrimitive() && "texture".equals(key)) {
+            textures.add(value.getAsString());
+        } else if ("textures".equals(key) && value.isJsonObject()) {
+            value.getAsJsonObject().entrySet().forEach(t -> textures.add(t.getValue().getAsString()));
         }
     }
 
