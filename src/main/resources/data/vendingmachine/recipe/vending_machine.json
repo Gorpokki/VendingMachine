@@ -1,11 +1,12 @@
 {
   "type": "minecraft:crafting_shaped",
   "category": "misc",
-  "pattern": ["CGC", "CHC", "CCC"],
+  "pattern": ["BIB", "ICI", " H "],
   "key": {
-    "C": { "item": "minecraft:copper_ingot" },
-    "G": { "item": "minecraft:glass_pane" },
-    "H": { "item": "minecraft:chest" }
+    "B": { "item": "minecraft:stone_button" },
+    "I": { "item": "minecraft:iron_ingot" },
+    "C": { "item": "vendingmachine:vending_machine_casing" },
+    "H": { "item": "minecraft:hopper" }
   },
   "result": { "id": "vendingmachine:vending_machine", "count": 1 }
 }

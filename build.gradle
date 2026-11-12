@@ -39,8 +39,15 @@ dependencies {
     compileOnly "maven.modrinth:ae2:${ae2_version_id}"
     runMods "maven.modrinth:ae2:${ae2_version_id}"
     runMods "maven.modrinth:guideme:${guideme_version_id}"
+    // Jade is compile-only and left out of runMods, so the GameTests and the server boot run without it.
+    compileOnly "maven.modrinth:jade:${jade_version_id}"
+    // Recipe viewers: compiled against, never shipped or run, so the mod boots without either.
+    compileOnly "maven.modrinth:jei:${jei_version_id}"
+    compileOnly "maven.modrinth:emi:${emi_version_id}"
     testImplementation platform('org.junit:junit-bom:5.14.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    // Matches the Gson Minecraft 1.21.1 bundles, so the asset test parses JSON the way the game does.
+    testImplementation 'com.google.code.gson:gson:2.11.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

@@ -8,6 +8,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -24,7 +28,17 @@ import com.cubefury.vendingmachine.integration.NumismaticsCurrency;
  */
 public final class Currency {
 
-    public record Denomination(Item item, int value) {}
+    public record Denomination(Item item, int value) {
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, List<Denomination>> LIST_STREAM_CODEC = StreamCodec
+            .composite(
+                ByteBufCodecs.registry(Registries.ITEM),
+                Denomination::item,
+                ByteBufCodecs.VAR_INT,
+                Denomination::value,
+                Denomination::new)
+            .apply(ByteBufCodecs.list());
+    }
 
     private record Table(List<Denomination> denominations, boolean inSpurs) {}
 
@@ -55,7 +69,7 @@ public final class Currency {
         return (long) unitValue(stack) * stack.getCount();
     }
 
-    /** Whether credit is counted in Numismatics spurs, so a Numismatics card can pay it. */
+    /** Whether prices are counted in Numismatics spurs, so a Numismatics card can pay them. */
     public static boolean countsInSpurs() {
         return table().inSpurs();
     }
@@ -107,17 +121,40 @@ public final class Currency {
      * whatever is left over.
      */
     public static List<ItemStack> makeChange(long amount) {
+        List<Denomination> coins = denominations();
+        long[] counts = split(amount, coins);
         List<ItemStack> out = new ArrayList<>();
-        for (Denomination d : denominations()) {
-            long count = amount / d.value();
-            amount -= count * d.value();
-            int max = d.item()
-                .getDefaultMaxStackSize();
-            while (count > 0) {
-                int n = (int) Math.min(count, max);
-                out.add(new ItemStack(d.item(), n));
-                count -= n;
-            }
+        for (int i = 0; i < counts.length; i++) {
+            out.addAll(stacks(coins.get(i)
+                .item(), counts[i]));
+        }
+        return out;
+    }
+
+    /**
+     * How many of each of {@code coins}, largest first, make up as much of {@code amount} as they can express, using
+     * the fewest coins.
+     */
+    public static long[] split(long amount, List<Denomination> coins) {
+        long[] counts = new long[coins.size()];
+        long rest = amount;
+        for (int i = 0; i < counts.length; i++) {
+            long value = coins.get(i)
+                .value();
+            counts[i] = rest / value;
+            rest -= counts[i] * value;
+        }
+        return counts;
+    }
+
+    /** {@code count} of {@code item} as full stacks and one partial stack. */
+    public static List<ItemStack> stacks(Item item, long count) {
+        List<ItemStack> out = new ArrayList<>();
+        int max = item.getDefaultMaxStackSize();
+        while (count > 0) {
+            int n = (int) Math.min(count, max);
+            out.add(new ItemStack(item, n));
+            count -= n;
         }
         return out;
     }
@@ -125,8 +162,8 @@ public final class Currency {
     /**
      * How many of each coin to take from a store that holds {@code available[i]} of {@code denominations().get(i)},
      * so the coins taken are worth at least {@code amount}. Largest coins first; when they cannot match exactly, one
-     * more coin covers the rest and the caller keeps the overpaid part as credit. Empty when the store holds too
-     * little.
+     * more coin covers the rest and the caller gives the overpaid part back as change. Empty when the store holds
+     * too little.
      */
     public static Optional<long[]> cover(long amount, long[] available) {
         int[] values = denominations().stream()

@@ -1,1 +1,1 @@
-{ "values": ["vendingmachine:vending_machine"] }
+{ "values": ["vendingmachine:vending_machine", "vendingmachine:vending_machine_casing"] }

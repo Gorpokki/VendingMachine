@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -16,11 +17,11 @@ import net.minecraft.world.level.GameType;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
-import com.cubefury.vendingmachine.Registration;
 import com.cubefury.vendingmachine.VendingMachine;
 import com.cubefury.vendingmachine.blocks.VendingMachineBlockEntity;
 import com.cubefury.vendingmachine.blocks.gui.VendingMachineMenu;
 import com.cubefury.vendingmachine.trade.Trade;
+import com.cubefury.vendingmachine.util.Currency;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -53,14 +54,14 @@ public final class MeStorageGameTests {
     }
 
     private static VendingMachineBlockEntity buildNetwork(GameTestHelper h, Player owner) {
-        h.setBlock(MACHINE, Registration.VENDING_MACHINE.get());
+        // Facing west keeps the casings off the drive's side: they stand north of the controller.
+        VendingMachineBlockEntity machine = Machines.build(h, MACHINE, Direction.WEST);
         h.setBlock(DRIVE, BuiltInRegistries.BLOCK.get(ResourceLocation.fromNamespaceAndPath("ae2", "drive")));
         h.setBlock(ENERGY,
             BuiltInRegistries.BLOCK.get(ResourceLocation.fromNamespaceAndPath("ae2", "creative_energy_cell")));
         DriveBlockEntity drive = h.getBlockEntity(DRIVE);
         drive.getInternalInventory()
             .addItems(new ItemStack(item("ae2", "item_storage_cell_1k")));
-        VendingMachineBlockEntity machine = h.getBlockEntity(MACHINE);
         machine.placedBy(owner);
         return machine;
     }
@@ -96,7 +97,9 @@ public final class MeStorageGameTests {
             h.assertTrue(buy(player, menu), "ME storage should pay");
             h.assertTrue(stored(storage, coin("cog")) == 0, "the cog (64 spurs) should pay the price of 64");
             h.assertTrue(stored(storage, coin("spur")) == 64, "the spurs should stay in ME storage");
-            h.assertTrue(machine.credit(player.getUUID()) == 0, "no credit should be left over");
+            h.assertTrue(machine.wallets()
+                .total(player.getUUID()) == 0, "no coins should be left over in the wallet");
+            Chute.drain(machine);
             h.assertTrue(
                 machine.output.getStackInSlot(0)
                     .getCount() == 3,
@@ -115,9 +118,10 @@ public final class MeStorageGameTests {
             VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, List.of(BREAD));
             menu.getSlot(VendingMachineMenu.COIN_SLOT)
                 .set(new ItemStack(coin("spur"), 60));
-            h.assertTrue(buy(player, menu), "credit and ME storage together should pay");
+            h.assertTrue(buy(player, menu), "wallet and ME storage together should pay");
             h.assertTrue(stored(storage, coin("cog")) == 0, "the cog should cover the missing 4 spurs");
-            h.assertTrue(machine.credit(player.getUUID()) == 60, "the overpaid 60 spurs should stay as credit");
+            h.assertTrue(machine.wallets()
+                .total(player.getUUID()) == 60, "the overpaid 60 spurs should stay in the wallet");
             h.succeed();
         });
     }
@@ -135,7 +139,8 @@ public final class MeStorageGameTests {
             h.assertTrue(buy(player, menu), "ME storage should pay");
             h.assertTrue(stored(storage, coin("cog")) == 0, "the cog (64 spurs) should pay the price of 20");
             h.assertTrue(stored(storage, coin("spur")) == 5, "the 5 spurs should go back, as the cog covers them");
-            h.assertTrue(machine.credit(player.getUUID()) == 44, "the overpaid 44 spurs should stay as credit");
+            h.assertTrue(machine.wallets()
+                .total(player.getUUID()) == 44, "the overpaid 44 spurs should stay in the wallet");
             h.succeed();
         });
     }
@@ -150,7 +155,8 @@ public final class MeStorageGameTests {
             VendingMachineMenu menu = new VendingMachineMenu(0, player.getInventory(), machine, List.of(BREAD));
             h.assertFalse(buy(player, menu), "buy should be refused");
             h.assertTrue(stored(storage, coin("spur")) == 10, "ME storage should be unchanged");
-            h.assertTrue(machine.credit(player.getUUID()) == 0, "credit should stay 0");
+            h.assertTrue(machine.wallets()
+                .total(player.getUUID()) == 0, "the wallet should stay empty");
             h.assertTrue(
                 machine.output.getStackInSlot(0)
                     .isEmpty(),
@@ -176,11 +182,41 @@ public final class MeStorageGameTests {
                 buy(stranger, strangerMenu),
                 "a player who does not own the network should not pay from its ME storage");
             h.assertTrue(stored(storage, coin("cog")) == 2, "ME storage should be unchanged by the refused stranger");
-            h.assertTrue(machine.credit(stranger.getUUID()) == 0, "stranger should get no credit");
+            h.assertTrue(machine.wallets()
+                .total(stranger.getUUID()) == 0, "the stranger's wallet should stay empty");
             VendingMachineMenu ownerMenu = new VendingMachineMenu(0, owner.getInventory(), machine, List.of(BREAD));
             h.assertTrue(buy(owner, ownerMenu), "the network owner should pay from ME storage");
             h.assertTrue(stored(storage, coin("cog")) == 1, "the owner's purchase should take one cog");
             h.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void menuSendsMeCoinsToOwnerOnly(GameTestHelper h) {
+        Player owner = h.makeMockPlayer(GameType.SURVIVAL);
+        VendingMachineBlockEntity machine = buildNetwork(h, owner);
+        h.runAfterDelay(BOOT_TICKS, () -> {
+            store(storage(h, machine), coin("cog"), 2);
+            VendingMachineMenu ownerMenu = new VendingMachineMenu(0, owner.getInventory(), machine, List.of(BREAD));
+            int cog = ownerMenu.coins()
+                .stream()
+                .map(Currency.Denomination::item)
+                .toList()
+                .indexOf(coin("cog"));
+            Player stranger = h.makeMockPlayer(GameType.SURVIVAL);
+            VendingMachineMenu strangerMenu = new VendingMachineMenu(
+                0,
+                stranger.getInventory(),
+                machine,
+                List.of(BREAD));
+            // The cached inventory updates on the next grid tick.
+            h.runAfterDelay(2, () -> {
+                h.assertTrue(ownerMenu.meCount(cog) == 2, "the owner's menu should send the 2 cogs in ME storage");
+                h.assertTrue(ownerMenu.canPay(BREAD.price()), "ME coins should pay for the owner");
+                h.assertTrue(strangerMenu.meCount(cog) == 0, "another player's menu should send no ME coins");
+                h.assertFalse(strangerMenu.canPay(BREAD.price()), "ME coins should not pay for another player");
+                h.succeed();
+            });
         });
     }
 }

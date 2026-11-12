@@ -1,0 +1,29 @@
+{
+  "coin_insert": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "minecraft:block.chain.place",
+        "type": "event"
+      }
+    ]
+  },
+  "coin_drop": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "minecraft:block.chain.fall",
+        "type": "event"
+      }
+    ]
+  },
+  "item_drop": {
+    "category": "block",
+    "sounds": [
+      {
+        "name": "minecraft:block.dispenser.dispense",
+        "type": "event"
+      }
+    ]
+  }
+}

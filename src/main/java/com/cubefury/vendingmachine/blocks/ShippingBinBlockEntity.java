@@ -114,13 +114,19 @@ public class ShippingBinBlockEntity extends BaseContainerBlockEntity {
         }
     }
 
-    /** The first catalogue entry with a sell price for this exact item, or null. Coins are never sold. */
+    /**
+     * The first one-stack catalogue entry with a sell price for this exact item, or null. Coins are never sold, and a
+     * trade that gives several stacks never buys any of them back.
+     */
     private static Trade sellable(ItemStack stack, List<Trade> catalogue) {
         if (stack.isEmpty() || Currency.unitValue(stack) > 0) return null;
         return catalogue.stream()
             .filter(
                 trade -> trade.sellPrice()
-                    .isPresent() && ItemStack.isSameItemSameComponents(stack, trade.item()))
+                    .isPresent()
+                    && trade.items()
+                        .size() == 1
+                    && ItemStack.isSameItemSameComponents(stack, trade.item()))
             .findFirst()
             .orElse(null);
     }

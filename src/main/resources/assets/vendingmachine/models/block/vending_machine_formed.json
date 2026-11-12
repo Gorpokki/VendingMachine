@@ -1,0 +1,73 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "particle": "vendingmachine:block/vending_machine_front_on",
+    "casing": "vendingmachine:block/vending_machine_casing",
+    "front": "vendingmachine:block/vending_machine_front_on",
+    "glow": "vendingmachine:block/vending_machine_front_on"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "faces": {
+        "down": {
+          "texture": "#casing",
+          "cullface": "down"
+        },
+        "up": {
+          "texture": "#casing",
+          "cullface": "up"
+        },
+        "north": {
+          "texture": "#front",
+          "cullface": "north"
+        },
+        "south": {
+          "texture": "#casing",
+          "cullface": "south"
+        },
+        "west": {
+          "texture": "#casing",
+          "cullface": "west"
+        },
+        "east": {
+          "texture": "#casing",
+          "cullface": "east"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "shade": false,
+      "neoforge_data": {
+        "block_light": 15,
+        "sky_light": 15
+      },
+      "faces": {
+        "north": {
+          "texture": "#glow",
+          "cullface": "north"
+        }
+      }
+    }
+  ]
+}
