@@ -13,6 +13,7 @@ import com.cubefury.vendingmachine.trade.StoreTrades.Entry;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.gui.builder.IRecipeLayoutBuilder;
+import mezz.jei.api.gui.builder.IRecipeSlotBuilder;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
 import mezz.jei.api.helpers.IGuiHelper;
@@ -83,7 +84,13 @@ public final class JeiTrades implements IModPlugin {
 
         @Override
         public int getHeight() {
-            return TradePage.height(mostOutputs());
+            return TradePage.height(
+                StoreTrades.synced()
+                    .stream()
+                    .mapToInt(TradePage::inputs)
+                    .max()
+                    .orElse(0),
+                mostOutputs());
         }
 
         private static int mostOutputs() {
@@ -97,11 +104,19 @@ public final class JeiTrades implements IModPlugin {
 
         @Override
         public void setRecipe(IRecipeLayoutBuilder builder, Entry entry, IFocusGroup focuses) {
-            List<ItemStack> price = entry.price();
-            for (int i = 0; i < price.size(); i++) {
-                builder.addSlot(RecipeIngredientRole.INPUT, TradePage.coinX(i) + 1, TradePage.coinY(i) + 1)
-                    .addItemStack(price.get(i))
-                    .setStandardSlotBackground();
+            int slot = 0;
+            for (ItemStack coin : entry.price()) {
+                input(builder, slot).addItemStack(coin);
+                slot++;
+            }
+            for (List<ItemStack> item : entry.items()) {
+                input(builder, slot).addItemStacks(item);
+                slot++;
+            }
+            for (List<ItemStack> item : entry.kept()) {
+                input(builder, slot).addItemStacks(item)
+                    .addRichTooltipCallback((view, tooltip) -> tooltip.add(TradePage.kept()));
+                slot++;
             }
             List<ItemStack> outputs = entry.outputs();
             for (int i = 0; i < outputs.size(); i++) {
@@ -109,6 +124,11 @@ public final class JeiTrades implements IModPlugin {
                     .addItemStack(outputs.get(i))
                     .setStandardSlotBackground();
             }
+        }
+
+        private static IRecipeSlotBuilder input(IRecipeLayoutBuilder builder, int slot) {
+            return builder.addSlot(RecipeIngredientRole.INPUT, TradePage.inputX(slot) + 1, TradePage.inputY(slot) + 1)
+                .setStandardSlotBackground();
         }
 
         @Override

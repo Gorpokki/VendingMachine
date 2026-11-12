@@ -145,9 +145,12 @@ The mod ships no icon textures: a tab whose icon is missing shows its
 category's initial instead.
 
 With JEI or EMI installed, a Vending Machine page lists every trade in
-catalogue order: its price as the fewest coins, largest first, an arrow, and
-every stack bought, four per row. The page updates when you join a world or
-server and after `/reload`. Neither viewer is required.
+catalogue order: its price as the fewest coins, largest first, then the items
+it takes and the items it only requires, four per row, an arrow, and every
+stack bought, four per row. A tag cost cycles through the tag's items. Items
+that are not consumed say **Requires (Not Consumed):** in their tooltip. The
+page updates when you join a world or server and after `/reload`. Neither
+viewer is required.
 
 ## Currency
 

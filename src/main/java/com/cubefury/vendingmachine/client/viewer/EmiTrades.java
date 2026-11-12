@@ -1,9 +1,11 @@
 package com.cubefury.vendingmachine.client.viewer;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 import com.cubefury.vendingmachine.VendingMachine;
 import com.cubefury.vendingmachine.trade.StoreTrades;
@@ -17,6 +19,7 @@ import dev.emi.emi.api.recipe.EmiRecipeCategory;
 import dev.emi.emi.api.render.EmiTexture;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
+import dev.emi.emi.api.widget.SlotWidget;
 import dev.emi.emi.api.widget.WidgetHolder;
 
 /**
@@ -47,21 +50,34 @@ public final class EmiTrades implements EmiPlugin {
 
         private final EmiRecipeCategory category;
         private final ResourceLocation id;
-        private final List<EmiIngredient> price;
+        private final List<EmiIngredient> inputs;
+        private final int keptFrom;
         private final List<EmiStack> outputs;
 
         Trade(EmiRecipeCategory category, int index, Entry entry) {
             this.category = category;
             // A leading slash marks an id EMI synthesised, not one from a data pack.
             this.id = ResourceLocation.fromNamespaceAndPath(VendingMachine.MODID, "/trade/" + index);
-            this.price = entry.price()
-                .stream()
-                .<EmiIngredient>map(EmiStack::of)
-                .toList();
+            List<EmiIngredient> slots = new ArrayList<>();
+            entry.price()
+                .forEach(coin -> slots.add(EmiStack.of(coin)));
+            entry.items()
+                .forEach(item -> slots.add(choices(item)));
+            this.keptFrom = slots.size();
+            entry.kept()
+                .forEach(item -> slots.add(choices(item)));
+            this.inputs = List.copyOf(slots);
             this.outputs = entry.outputs()
                 .stream()
                 .map(EmiStack::of)
                 .toList();
+        }
+
+        private static EmiIngredient choices(List<ItemStack> stacks) {
+            return EmiIngredient.of(
+                stacks.stream()
+                    .map(EmiStack::of)
+                    .toList());
         }
 
         @Override
@@ -76,7 +92,7 @@ public final class EmiTrades implements EmiPlugin {
 
         @Override
         public List<EmiIngredient> getInputs() {
-            return price;
+            return inputs;
         }
 
         @Override
@@ -91,13 +107,14 @@ public final class EmiTrades implements EmiPlugin {
 
         @Override
         public int getDisplayHeight() {
-            return TradePage.height(outputs.size());
+            return TradePage.height(inputs.size(), outputs.size());
         }
 
         @Override
         public void addWidgets(WidgetHolder widgets) {
-            for (int i = 0; i < price.size(); i++) {
-                widgets.addSlot(price.get(i), TradePage.coinX(i), TradePage.coinY(i));
+            for (int i = 0; i < inputs.size(); i++) {
+                SlotWidget slot = widgets.addSlot(inputs.get(i), TradePage.inputX(i), TradePage.inputY(i));
+                if (i >= keptFrom) slot.appendTooltip(TradePage.kept());
             }
             widgets.addTexture(EmiTexture.EMPTY_ARROW, TradePage.ARROW_X, TradePage.ARROW_Y);
             for (int i = 0; i < outputs.size(); i++) {
