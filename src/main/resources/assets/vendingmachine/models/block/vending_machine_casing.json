@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "vendingmachine:block/vending_machine_casing"
+  }
+}

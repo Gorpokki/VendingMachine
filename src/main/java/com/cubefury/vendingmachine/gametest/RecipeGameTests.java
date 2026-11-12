@@ -49,6 +49,16 @@ public final class RecipeGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void fiveCasingsCraftFromIronAndCopper(GameTestHelper h) {
+        Item i = Items.IRON_INGOT;
+        Item c = Items.COPPER_INGOT;
+        ItemStack result = craft(h, i, c, i, c, i, c, i, c, i);
+        h.assertTrue(result.is(Registration.VENDING_MACHINE_CASING_ITEM.get()) && result.getCount() == 5,
+            "should craft five vending machine casings, got " + result);
+        h.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void shippingBinCraftsFromPlanksSlabsAndChest(GameTestHelper h) {
         Item p = Items.OAK_PLANKS;
         Item s = Items.SPRUCE_SLAB;

@@ -1,0 +1,9 @@
+[
+  {"name": "components", "icon": "components"},
+  {"name": "raw", "icon": "raw"},
+  {"name": "farming", "icon": "farming"},
+  {"name": "chemistry", "icon": "chemistry"},
+  {"name": "magic", "icon": "magic"},
+  {"name": "bees", "icon": "bees"},
+  {"name": "misc", "icon": "misc"}
+]

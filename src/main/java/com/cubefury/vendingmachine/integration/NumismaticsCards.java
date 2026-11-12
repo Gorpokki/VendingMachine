@@ -20,4 +20,14 @@ public final class NumismaticsCards {
         IDeductable account = IDeductable.get(card, player, ReasonHolder.IGNORED);
         return account != null && account.deduct(spurs, ReasonHolder.IGNORED);
     }
+
+    /**
+     * Spurs the card can pay for {@code player}: the account balance behind a bound card, and for an authorized card
+     * the sub-account's remaining limit capped by the shared account's balance. Zero when the player may not use the
+     * card.
+     */
+    public static int balance(ItemStack card, Player player) {
+        IDeductable account = IDeductable.get(card, player, ReasonHolder.IGNORED);
+        return account == null ? 0 : account.getMaxWithdrawal();
+    }
 }

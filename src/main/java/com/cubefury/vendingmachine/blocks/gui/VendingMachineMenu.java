@@ -1,6 +1,8 @@
 package com.cubefury.vendingmachine.blocks.gui;
 
 import java.util.List;
+import java.util.function.IntSupplier;
+import java.util.function.LongSupplier;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -21,21 +23,35 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.items.SlotItemHandler;
 
 import com.cubefury.vendingmachine.Registration;
+import com.cubefury.vendingmachine.blocks.VendingMachineBlock;
 import com.cubefury.vendingmachine.blocks.VendingMachineBlockEntity;
+import com.cubefury.vendingmachine.integration.NumismaticsCards;
+import com.cubefury.vendingmachine.trade.Categories;
 import com.cubefury.vendingmachine.trade.Trade;
 import com.cubefury.vendingmachine.trade.TradeDatabase;
 import com.cubefury.vendingmachine.util.Currency;
+import com.cubefury.vendingmachine.util.Currency.Denomination;
 
 /**
- * Button ids: {@link #BUTTON_REFUND} returns credit as coins; {@code BUTTON_FIRST_TRADE + i} buys trade {@code i}.
- * The catalogue is sent once when the menu opens.
+ * Slots: {@link #IN_SLOTS} coin slots that empty into the player's wallet, the card slot, the output slots, then the
+ * player inventory. The screen places every slot. Button ids: {@link #BUTTON_EJECT_COINS},
+ * {@link #BUTTON_TAKE_OUTPUTS}, {@link #BUTTON_COIN_ROW_SHOWN} and {@link #BUTTON_COIN_ROW_HIDDEN} tell whether the
+ * card slot takes a card, {@code BUTTON_FIRST_TRADE + i} buys trade {@code i}, and {@link #ejectCoinButton} takes one
+ * coin type out. The catalogue, coins and category tabs are sent once when the menu opens; the player's
+ * paying power is synced while it is open.
  */
 public class VendingMachineMenu extends AbstractContainerMenu {
 
-    public static final int BUTTON_REFUND = 0;
-    public static final int BUTTON_FIRST_TRADE = 1;
+    public static final int BUTTON_EJECT_COINS = 0;
+    public static final int BUTTON_TAKE_OUTPUTS = 1;
+    public static final int BUTTON_COIN_ROW_SHOWN = 2;
+    public static final int BUTTON_COIN_ROW_HIDDEN = 3;
+    public static final int BUTTON_FIRST_TRADE = 4;
+    public static final int IN_SLOTS = 8;
     public static final int COIN_SLOT = 0;
-    public static final int CARD_SLOT = 1;
+    public static final int CARD_SLOT = IN_SLOTS;
+    public static final int FIRST_OUTPUT_SLOT = CARD_SLOT + 1;
+    public static final int FIRST_PLAYER_SLOT = FIRST_OUTPUT_SLOT + VendingMachineBlockEntity.OUTPUT_SLOTS;
     private static final TagKey<Item> CARDS = ItemTags
         .create(ResourceLocation.fromNamespaceAndPath("numismatics", "cards"));
     private static final TagKey<Item> AUTHORIZED_CARDS = ItemTags
@@ -43,11 +59,15 @@ public class VendingMachineMenu extends AbstractContainerMenu {
 
     private final Player player;
     private final VendingMachineBlockEntity machine; // null on the client
+    private final BlockPos pos;
     private final ContainerLevelAccess access;
     private final List<Trade> trades;
-    private final DataSlot creditLow;
-    private final DataSlot creditHigh;
-    private final Container coinInput = new SimpleContainer(1) {
+    private final List<Denomination> coins;
+    private final List<Categories.Tab> tabs;
+    private final IntSupplier cardBalance;
+    private final IntSupplier[] walletCounts;
+    private final IntSupplier[] meCounts;
+    private final Container coinInput = new SimpleContainer(IN_SLOTS) {
 
         @Override
         public void setChanged() {
@@ -57,112 +77,205 @@ public class VendingMachineMenu extends AbstractContainerMenu {
     };
     /** Held only while the menu is open; given back on close. */
     private final Container cardInput = new SimpleContainer(1);
+    /** False while the client hides the coin row; the card slot then takes no card. */
+    private boolean cardSlotOpen = true;
 
     public VendingMachineMenu(int id, Inventory inv, RegistryFriendlyByteBuf buf) {
-        this(id, inv, null, buf.readBlockPos(), Trade.LIST_STREAM_CODEC.decode(buf));
+        this(id, inv, null, buf.readBlockPos(), Catalogue.read(buf));
     }
 
     public VendingMachineMenu(int id, Inventory inv, VendingMachineBlockEntity machine, List<Trade> trades) {
-        this(id, inv, machine, machine.getBlockPos(), trades);
+        this(id, inv, machine, machine.getBlockPos(), Catalogue.of(trades));
     }
 
     private VendingMachineMenu(int id, Inventory inv, VendingMachineBlockEntity machine, BlockPos pos,
-        List<Trade> trades) {
+        Catalogue catalogue) {
         super(Registration.VENDING_MACHINE_MENU.get(), id);
         this.player = inv.player;
         this.machine = machine;
-        this.trades = trades;
+        this.trades = catalogue.trades();
+        this.coins = catalogue.coins();
+        this.tabs = catalogue.tabs();
+        this.pos = pos;
         this.access = machine == null ? ContainerLevelAccess.NULL
             : ContainerLevelAccess.create(machine.getLevel(), pos);
-        addCoinAndCardSlots();
-        addOutputSlots(machine == null ? new ItemStackHandler(VendingMachineBlockEntity.OUTPUT_SLOTS) : machine.output);
+        addMachineSlots(
+            machine == null ? new ItemStackHandler(VendingMachineBlockEntity.OUTPUT_SLOTS) : machine.output);
         addPlayerSlots(inv);
-        creditLow = addDataSlot(machine == null ? DataSlot.standalone() : new CreditSlot(0));
-        creditHigh = addDataSlot(machine == null ? DataSlot.standalone() : new CreditSlot(16));
+        cardBalance = syncedValue(this::serverCardBalance);
+        walletCounts = new IntSupplier[coins.size()];
+        meCounts = new IntSupplier[coins.size()];
+        for (int i = 0; i < coins.size(); i++) {
+            Item coin = coins.get(i)
+                .item();
+            walletCounts[i] = syncedValue(() -> machine.wallets()
+                .count(player.getUUID(), coin));
+            meCounts[i] = syncedValue(() -> machine.meCoins(player, coin));
+        }
     }
 
-    private void addCoinAndCardSlots() {
-        addSlot(new Slot(coinInput, 0, 8, 114) {
-
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return Currency.unitValue(stack) > 0;
-            }
-        });
-        addSlot(new Slot(cardInput, 0, 80, 95) {
-
-            @Override
-            public boolean mayPlace(ItemStack stack) {
-                return isCard(stack);
-            }
-
-            @Override
-            public int getMaxStackSize() {
-                return 1;
-            }
-        });
+    /** Writes what the client menu reads when it opens: the machine, the catalogue, the coins and the tabs. */
+    public static void writeOpenData(RegistryFriendlyByteBuf buf, BlockPos pos, List<Trade> trades) {
+        buf.writeBlockPos(pos);
+        Catalogue.of(trades).write(buf);
     }
 
-    /** The machine's output slots; a client menu shows empty stand-ins that the server fills through sync. */
-    private void addOutputSlots(ItemStackHandler output) {
+    private void addMachineSlots(ItemStackHandler output) {
+        for (int i = 0; i < IN_SLOTS; i++) {
+            addSlot(new InSlot(coinInput, i));
+        }
+        addSlot(new CardSlot(cardInput));
         for (int i = 0; i < output.getSlots(); i++) {
-            addSlot(new SlotItemHandler(output, i, 30 + i * 18, 114) {
-
-                @Override
-                public boolean mayPlace(ItemStack stack) {
-                    return false;
-                }
-
-                @Override
-                public void setChanged() {
-                    if (machine != null) machine.setChanged();
-                }
-            });
+            addSlot(new OutputSlot(output, i));
         }
     }
 
     private void addPlayerSlots(Inventory inv) {
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                addSlot(new Slot(inv, col + row * 9 + 9, 8 + col * 18, 140 + row * 18));
+        for (int i = 9; i < 36; i++) {
+            addSlot(new Slot(inv, i, 0, 0));
+        }
+        for (int i = 0; i < 9; i++) {
+            addSlot(new Slot(inv, i, 0, 0));
+        }
+    }
+
+    /**
+     * Syncs a non-negative value to the client as two 16-bit data slots, capped at {@link Integer#MAX_VALUE}. The
+     * supplier runs on the server only.
+     */
+    private IntSupplier syncedValue(LongSupplier serverValue) {
+        DataSlot low = addDataSlot(sixteenBits(serverValue, 0));
+        DataSlot high = addDataSlot(sixteenBits(serverValue, 16));
+        return () -> (low.get() & 0xFFFF) | (high.get() & 0xFFFF) << 16;
+    }
+
+    /** A data slot for the 16 bits of the capped server value that start at bit {@code shift}. */
+    private DataSlot sixteenBits(LongSupplier serverValue, int shift) {
+        if (machine == null) return DataSlot.standalone();
+        return new DataSlot() {
+
+            @Override
+            public int get() {
+                return (int) (Math.min(serverValue.getAsLong(), Integer.MAX_VALUE) >> shift & 0xFFFF);
             }
-        }
-        for (int col = 0; col < 9; col++) {
-            addSlot(new Slot(inv, col, 8 + col * 18, 198));
-        }
+
+            @Override
+            public void set(int value) {
+                // Only the server holds this slot; it reads the value through get() and never takes one from here.
+            }
+        };
+    }
+
+    private long serverCardBalance() {
+        ItemStack card = cardInput.getItem(0);
+        return card.isEmpty() || !Currency.countsInSpurs() ? 0 : NumismaticsCards.balance(card, player);
+    }
+
+    /** The machine on the server; null on the client. */
+    public VendingMachineBlockEntity machine() {
+        return machine;
+    }
+
+    /**
+     * Whether the machine's structure is complete. Until it is, as in the original, the screen lists no trades and
+     * the machine takes no coins and gives nothing out.
+     */
+    public boolean formed() {
+        return player.level()
+            .getBlockState(pos)
+            .getOptionalValue(VendingMachineBlock.FORMED)
+            .orElse(false);
     }
 
     public List<Trade> trades() {
         return trades;
     }
 
-    /** Credit as shown on the client; capped at {@link Integer#MAX_VALUE}. */
-    public long credit() {
-        return (creditLow.get() & 0xFFFFL) | ((creditHigh.get() & 0xFFFFL) << 16);
+    /** The coins the machine accepts, largest first. */
+    public List<Denomination> coins() {
+        return coins;
+    }
+
+    public List<Categories.Tab> tabs() {
+        return tabs;
+    }
+
+    /** How many of {@code coins().get(coin)} the player's wallet holds. */
+    public long walletCount(int coin) {
+        return walletCounts[coin].getAsInt();
+    }
+
+    /** How many of {@code coins().get(coin)} the machine may take from ME storage for the player. */
+    public long meCount(int coin) {
+        return meCounts[coin].getAsInt();
+    }
+
+    /** What the card in the card slot can pay. */
+    public long cardBalance() {
+        return cardBalance.getAsInt();
+    }
+
+    /** Whether a purchase can pay {@code price}: by card alone, or from the wallet and ME storage together. */
+    public boolean canPay(long price) {
+        long coinValue = 0;
+        for (int i = 0; i < coins.size(); i++) {
+            coinValue += (walletCount(i) + meCount(i)) * coins.get(i)
+                .value();
+        }
+        return cardBalance() >= price || coinValue >= price;
+    }
+
+    /** Whether the player can buy {@code trade} now: pay its price and hold its items. */
+    public boolean canBuy(Trade trade) {
+        return canPay(trade.price()) && trade.itemsHeld(player.getInventory().items);
+    }
+
+    /**
+     * The button id that takes every coin of {@code coins().get(coin)} out of the wallet. The mapping is its own
+     * inverse, so it also turns a button id back into the coin.
+     */
+    public static int ejectCoinButton(int coin) {
+        return -1 - coin;
     }
 
     @Override
     public void slotsChanged(Container container) {
         super.slotsChanged(container);
-        if (machine == null || container != coinInput) return;
-        ItemStack coins = coinInput.getItem(0);
-        long value = Currency.valueOf(coins);
-        if (value > 0) {
-            coinInput.setItem(0, ItemStack.EMPTY);
-            machine.deposit(player.getUUID(), value);
+        if (machine == null || container != coinInput || !formed()) return;
+        for (int i = 0; i < IN_SLOTS; i++) {
+            ItemStack stack = coinInput.getItem(i);
+            if (Currency.unitValue(stack) > 0) {
+                coinInput.setItem(i, ItemStack.EMPTY);
+                machine.deposit(player, stack);
+            }
         }
     }
 
     @Override
     public boolean clickMenuButton(Player player, int id) {
-        if (machine == null) return false;
-        if (id == BUTTON_REFUND) {
-            machine.refund(player);
+        if (id == BUTTON_COIN_ROW_SHOWN || id == BUTTON_COIN_ROW_HIDDEN) {
+            cardSlotOpen = id == BUTTON_COIN_ROW_SHOWN;
             return true;
         }
-        int index = id - BUTTON_FIRST_TRADE;
-        if (index < 0 || index >= trades.size()) return false;
-        return machine.buy(player, trades.get(index), cardInput.getItem(0));
+        if (machine == null || !formed()) return false;
+        if (id < 0) return ejectCoin(player, ejectCoinButton(id));
+        if (id == BUTTON_EJECT_COINS) machine.ejectCoins(player);
+        else if (id == BUTTON_TAKE_OUTPUTS) machine.takeOutputs(player);
+        else return buy(player, id - BUTTON_FIRST_TRADE);
+        return true;
+    }
+
+    private boolean ejectCoin(Player player, int coin) {
+        if (coin >= coins.size()) return false;
+        machine.ejectCoins(
+            player,
+            coins.get(coin)
+                .item());
+        return true;
+    }
+
+    private boolean buy(Player player, int index) {
+        return index < trades.size() && machine.buy(player, trades.get(index), cardInput.getItem(0));
     }
 
     @Override
@@ -171,17 +284,16 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         if (!slot.hasItem()) return ItemStack.EMPTY;
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
-        if (!move(stack, index)) return ItemStack.EMPTY;
+        if (!moveToTarget(stack, index)) return ItemStack.EMPTY;
         if (stack.isEmpty()) slot.setByPlayer(ItemStack.EMPTY);
         else slot.setChanged();
         return original;
     }
 
-    /** Moves a machine slot's stack to the player, or a player's coin or card to its slot. Returns whether any did. */
-    private boolean move(ItemStack stack, int index) {
-        int playerStart = 2 + VendingMachineBlockEntity.OUTPUT_SLOTS;
-        if (index < playerStart) return moveItemStackTo(stack, playerStart, slots.size(), true);
-        if (Currency.unitValue(stack) > 0) return moveItemStackTo(stack, COIN_SLOT, COIN_SLOT + 1, false);
+    /** Machine slots go to the player inventory; coins go to the IN slots and a card to the card slot. */
+    private boolean moveToTarget(ItemStack stack, int from) {
+        if (from < FIRST_PLAYER_SLOT) return moveItemStackTo(stack, FIRST_PLAYER_SLOT, slots.size(), true);
+        if (Currency.unitValue(stack) > 0) return moveItemStackTo(stack, COIN_SLOT, COIN_SLOT + IN_SLOTS, false);
         return isCard(stack) && moveItemStackTo(stack, CARD_SLOT, CARD_SLOT + 1, false);
     }
 
@@ -203,23 +315,77 @@ public class VendingMachineMenu extends AbstractContainerMenu {
         return stack.is(CARDS) || stack.is(AUTHORIZED_CARDS);
     }
 
-    private class CreditSlot extends DataSlot {
+    /** Takes coins only. */
+    private static class InSlot extends Slot {
 
-        private final int shift;
-
-        CreditSlot(int shift) {
-            this.shift = shift;
+        InSlot(Container container, int index) {
+            super(container, index, 0, 0);
         }
 
         @Override
-        public int get() {
-            long shown = Math.min(machine.credit(player.getUUID()), Integer.MAX_VALUE);
-            return (int) ((shown >> shift) & 0xFFFF);
+        public boolean mayPlace(ItemStack stack) {
+            return Currency.unitValue(stack) > 0;
+        }
+    }
+
+    private class CardSlot extends Slot {
+
+        CardSlot(Container container) {
+            super(container, 0, 0, 0);
         }
 
         @Override
-        public void set(int value) {
-            // Credit lives in the machine; the server reads it through get() and never takes a value from here.
+        public boolean mayPlace(ItemStack stack) {
+            return cardSlotOpen && isCard(stack);
+        }
+
+        @Override
+        public int getMaxStackSize() {
+            return 1;
+        }
+    }
+
+    /** Bought items: take only, and shown only while it holds an item. */
+    private class OutputSlot extends SlotItemHandler {
+
+        OutputSlot(ItemStackHandler output, int index) {
+            super(output, index, 0, 0);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return false;
+        }
+
+        @Override
+        public boolean isActive() {
+            return hasItem();
+        }
+
+        @Override
+        public void setChanged() {
+            if (machine != null) machine.setChanged();
+        }
+    }
+
+    /** The trades, coins and tabs the client menu reads when it opens, after the machine's position. */
+    private record Catalogue(List<Trade> trades, List<Denomination> coins, List<Categories.Tab> tabs) {
+
+        static Catalogue of(List<Trade> trades) {
+            return new Catalogue(trades, Currency.denominations(), Categories.tabs(trades));
+        }
+
+        static Catalogue read(RegistryFriendlyByteBuf buf) {
+            return new Catalogue(
+                Trade.LIST_STREAM_CODEC.decode(buf),
+                Denomination.LIST_STREAM_CODEC.decode(buf),
+                Categories.Tab.LIST_STREAM_CODEC.decode(buf));
+        }
+
+        void write(RegistryFriendlyByteBuf buf) {
+            Trade.LIST_STREAM_CODEC.encode(buf, trades);
+            Denomination.LIST_STREAM_CODEC.encode(buf, coins);
+            Categories.Tab.LIST_STREAM_CODEC.encode(buf, tabs);
         }
     }
 }

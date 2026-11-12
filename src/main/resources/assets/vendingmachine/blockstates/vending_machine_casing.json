@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "vendingmachine:block/vending_machine_casing"
+    }
+  }
+}
