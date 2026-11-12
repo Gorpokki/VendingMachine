@@ -46,6 +46,8 @@ dependencies {
     compileOnly "maven.modrinth:emi:${emi_version_id}"
     testImplementation platform('org.junit:junit-bom:5.14.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    // Matches the Gson Minecraft 1.21.1 bundles, so the asset test parses JSON the way the game does.
+    testImplementation 'com.google.code.gson:gson:2.11.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
