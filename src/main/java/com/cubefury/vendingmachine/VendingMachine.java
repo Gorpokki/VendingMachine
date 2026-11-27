@@ -10,6 +10,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
@@ -44,6 +45,7 @@ public class VendingMachine {
         });
         modBus.addListener(RegisterPayloadHandlersEvent.class, StoreTrades::registerPayload);
         NeoForge.EVENT_BUS.addListener(OnDatapackSyncEvent.class, StoreTrades::send);
+        NeoForge.EVENT_BUS.addListener(TagsUpdatedEvent.class, StoreTrades::tagsUpdated);
         NeoForge.EVENT_BUS
             .addListener(RegisterCommandsEvent.class, e -> VendingCommand.register(e.getDispatcher()));
         if (ModList.get()
