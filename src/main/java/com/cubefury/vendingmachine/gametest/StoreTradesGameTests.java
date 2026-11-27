@@ -1,20 +1,28 @@
 package com.cubefury.vendingmachine.gametest;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import io.netty.buffer.Unpooled;
 
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -255,6 +263,82 @@ public final class StoreTradesGameTests {
                     .getServer()
                     .getPlayerList(),
                 null));
+        h.succeed();
+    }
+
+    /**
+     * Binds the item tags to {@code tags} as a remote client's tags packet does, then tells listeners as that packet
+     * does.
+     */
+    private static void receiveTags(GameTestHelper h, Map<TagKey<Item>, List<Holder<Item>>> tags) {
+        BuiltInRegistries.ITEM.bindTags(tags);
+        NeoForge.EVENT_BUS.post(
+            new TagsUpdatedEvent(
+                h.getLevel()
+                    .registryAccess(),
+                true,
+                false));
+    }
+
+    private static Map<TagKey<Item>, List<Holder<Item>>> withTag(Map<TagKey<Item>, List<Holder<Item>>> tags,
+        TagKey<Item> tag, Item... items) {
+        Map<TagKey<Item>, List<Holder<Item>>> bound = new HashMap<>(tags);
+        bound.put(
+            tag,
+            Arrays.stream(items)
+                .<Holder<Item>>map(BuiltInRegistries.ITEM::wrapAsHolder)
+                .toList());
+        return bound;
+    }
+
+    /** Fails unless the first cost of the synced page lists one of each of {@code items}, in order. */
+    private static void assertFirstCost(GameTestHelper h, String why, Item... items) {
+        h.assertTrue(
+            same(
+                StoreTrades.synced()
+                    .get(0)
+                    .items()
+                    .get(0),
+                Arrays.stream(items)
+                    .map(ItemStack::new)
+                    .toList()),
+            why + ", got " + StoreTrades.synced());
+    }
+
+    /**
+     * After a reload on a dedicated server the trade sync reaches a client before the new item tags do, and JEI and EMI
+     * read the page entries only after both. The entries must show the tags the client holds by then.
+     */
+    @GameTest(template = "empty")
+    public static void entriesFollowTagsThatArriveAfterTheSync(GameTestHelper h) {
+        Map<TagKey<Item>, List<Holder<Item>>> before = new HashMap<>();
+        BuiltInRegistries.ITEM.getTags()
+            .forEach(pair -> before.put(pair.getFirst(), pair.getSecond().stream().toList()));
+        TagKey<Item> gems = TagKey
+            .create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(VendingMachine.MODID, "test_gems"));
+        Trade trade = new Trade(
+            List.of(new ItemStack(Items.BREAD)),
+            Optional.empty(),
+            0,
+            Optional.empty(),
+            "food",
+            List.of(cost(Items.EMERALD, 1, Optional.of(gems))),
+            List.of(),
+            Trade.NO_GROUP,
+            0);
+        try {
+            receiveTags(h, before);
+            StoreTrades.receive(new Sync(List.of(trade), COINS));
+            assertFirstCost(h, "before the new tags arrive the cost shows only its own item", Items.EMERALD);
+
+            receiveTags(h, withTag(before, gems, Items.EMERALD, Items.DIAMOND));
+            assertFirstCost(h, "a tag added in the reload should show its items", Items.EMERALD, Items.DIAMOND);
+
+            receiveTags(h, withTag(before, gems, Items.EMERALD, Items.GOLD_INGOT));
+            assertFirstCost(h, "a changed tag should show its new members", Items.EMERALD, Items.GOLD_INGOT);
+        } finally {
+            receiveTags(h, before);
+        }
         h.succeed();
     }
 }

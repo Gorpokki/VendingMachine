@@ -2,6 +2,7 @@ package com.cubefury.vendingmachine.trade;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -10,6 +11,7 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 
@@ -22,6 +24,8 @@ import com.cubefury.vendingmachine.util.Currency.Denomination;
  * items it asks to see but does not take, and the items it gives.
  * The server sends the catalogue to each client whenever it syncs data packs, on login and after {@code /reload},
  * just before the recipes that make JEI and EMI reload.
+ * After {@code /reload} on a dedicated server the item tags reach the client between the two, so the entries are built
+ * again when they arrive.
  */
 public final class StoreTrades {
 
@@ -54,6 +58,7 @@ public final class StoreTrades {
     // The list is immutable; the volatile field publishes the one each sync replaces.
     @SuppressWarnings("java:S3077")
     private static volatile List<Entry> synced = List.of();
+    private static final AtomicReference<Sync> LAST = new AtomicReference<>();
 
     private StoreTrades() {}
 
@@ -68,7 +73,15 @@ public final class StoreTrades {
     }
 
     public static void receive(Sync sync) {
+        LAST.set(sync);
         synced = entries(sync.trades(), sync.coins());
+    }
+
+    /** Rebuilds the entries when the server's item tags reach this client, so tag costs list the current items. */
+    public static void tagsUpdated(TagsUpdatedEvent event) {
+        if (event.getUpdateCause() != TagsUpdatedEvent.UpdateCause.CLIENT_PACKET_RECEIVED) return;
+        Sync sync = LAST.get();
+        if (sync != null) receive(sync);
     }
 
     public static void send(OnDatapackSyncEvent event) {
